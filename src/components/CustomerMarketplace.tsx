@@ -1,11 +1,13 @@
 import React, { useContext } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useCart } from '../hooks/useCart';
 import { ArrowLeft, Search, ShoppingBag, Star, Heart, Filter } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function CustomerMarketplace() {
   const { navigateTo } = useContext(AppContext);
+  const { totalItems } = useCart();
 
   const categories = ['All', 'Electronics', 'Fashion', 'Home & Living', 'Sports', 'Beauty'];
   const [activeCategory, setActiveCategory] = React.useState('All');
@@ -125,9 +127,11 @@ export function CustomerMarketplace() {
             className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors relative"
           >
             <ShoppingBag className="w-6 h-6" />
-            <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">
-              3
-            </div>
+            {totalItems > 0 && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                {totalItems}
+              </div>
+            )}
           </button>
         </div>
         <h2 className="text-white mb-2">Shop & Pay Later</h2>

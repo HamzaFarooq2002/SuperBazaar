@@ -1,19 +1,47 @@
 import React, { useContext } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useOrder } from '../hooks/useOrder';
 import { CheckCircle, Package, MapPin, CreditCard, Calendar, Download, Share2 } from 'lucide-react';
 
 export function OrderConfirmation() {
   const { navigateTo } = useContext(AppContext);
+  const { currentOrder } = useOrder();
+
+  // If no order data, show fallback or redirect
+  if (!currentOrder) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#e8f0f2] to-[#d4e8e4] flex items-center justify-center px-6">
+        <div className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-8 text-center">
+          <p className="text-[#102542] mb-4">No order found</p>
+          <button
+            onClick={() => navigateTo('marketplace')}
+            className="px-6 py-3 bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] text-white rounded-xl hover:shadow-lg transition-all"
+          >
+            Browse Marketplace
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Format payment method for display
+  const paymentMethodDisplay = 
+    currentOrder.paymentMethod === 'bnpl' ? 'Pay in Installments (BNPL)' :
+    currentOrder.paymentMethod === 'credit' ? 'Nano Loan' :
+    currentOrder.paymentMethod === 'cash' ? 'Cash on Delivery' : 
+    currentOrder.paymentMethod;
 
   const orderDetails = {
-    orderId: 'SB-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-    date: new Date().toLocaleDateString('en-PK', { year: 'numeric', month: 'long', day: 'numeric' }),
-    estimatedDelivery: 'Wednesday, December 4, 2024',
-    items: 6,
-    total: 24200,
-    paymentMethod: 'Pay in 4 Installments',
-    deliveryAddress: 'Shop #12, Tariq Road, PECHS, Karachi'
+    orderId: currentOrder.orderNumber || 'N/A',
+    date: new Date(currentOrder.createdAt).toLocaleDateString('en-PK', { year: 'numeric', month: 'long', day: 'numeric' }),
+    estimatedDelivery: currentOrder.estimatedDelivery 
+      ? new Date(currentOrder.estimatedDelivery).toLocaleDateString('en-PK', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+      : 'To be confirmed',
+    items: currentOrder.items.length,
+    total: currentOrder.totalAmount,
+    paymentMethod: paymentMethodDisplay,
+    deliveryAddress: `${currentOrder.shippingAddress.street}, ${currentOrder.shippingAddress.city}`
   };
 
   return (
@@ -166,16 +194,18 @@ export function OrderConfirmation() {
         </motion.button>
 
         {/* Rewards Message */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.9 }}
-          className="mt-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center"
-        >
-          <p className="text-yellow-800 text-sm">
-            🎉 Congratulations! You've earned <span className="font-bold">PKR 1,210</span> cashback on this order!
-          </p>
-        </motion.div>
+        {currentOrder.paymentMethod === 'credit' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9 }}
+            className="mt-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center"
+          >
+            <p className="text-yellow-800 text-sm">
+              🎉 Congratulations! You've earned <span className="font-bold">5% cashback</span> on this order!
+            </p>
+          </motion.div>
+        )}
       </div>
     </div>
   );

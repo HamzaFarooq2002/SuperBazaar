@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
+import { OrderProvider } from './contexts/OrderContext';
 import { SplashScreen } from './components/SplashScreen';
 import { OnboardIntro } from './components/OnboardIntro';
 import { OnboardSignup } from './components/OnboardSignup';
@@ -106,6 +107,8 @@ export interface AppContextType {
   selectedInvoice?: string;
   userType?: 'supplier' | 'business' | 'customer' | null;
   setUserType?: (type: 'supplier' | 'business' | 'customer') => void;
+  selectedProduct?: any;
+  setSelectedProduct?: (product: any) => void;
 }
 
 export const AppContext = React.createContext<AppContextType>({
@@ -118,6 +121,7 @@ export default function App() {
   const [selectedTransaction, setSelectedTransaction] = useState<string>('');
   const [selectedInvoice, setSelectedInvoice] = useState<string>('');
   const [userType, setUserType] = useState<'supplier' | 'business' | 'customer' | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   const navigateTo = (screen: Screen) => {
     setCurrentScreen(screen);
@@ -132,6 +136,8 @@ export default function App() {
     selectedInvoice,
     userType,
     setUserType,
+    selectedProduct,
+    setSelectedProduct,
   };
 
   const pageVariants = {
@@ -242,11 +248,12 @@ export default function App() {
   return (
     <AuthProvider>
       <CartProvider>
-        <AppContext.Provider value={contextValue}>
-          <div className="min-h-screen bg-gray-50">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentScreen}
+        <OrderProvider>
+          <AppContext.Provider value={contextValue}>
+            <div className="min-h-screen bg-gray-50">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentScreen}
                 variants={pageVariants}
                 initial="initial"
                 animate="animate"
@@ -258,6 +265,7 @@ export default function App() {
             </AnimatePresence>
           </div>
         </AppContext.Provider>
+        </OrderProvider>
       </CartProvider>
     </AuthProvider>
   );

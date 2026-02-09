@@ -1,42 +1,71 @@
 import React, { useContext, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AppContext } from '../App';
-import { ArrowLeft, Star, Plus, Minus, ShoppingCart, Package, Truck, Shield, CreditCard } from 'lucide-react';
+import { useCart } from '../hooks/useCart';
+import { ArrowLeft, Star, Plus, Minus, ShoppingCart, Package, Truck, Shield, CreditCard, Check } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function ProductDetail() {
-  const { navigateTo } = useContext(AppContext);
+  const { navigateTo, selectedProduct } = useContext(AppContext);
+  const { addItem, totalItems } = useCart();
   const [quantity, setQuantity] = useState(1);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  // Sample product data
-  const product = {
-    id: '1',
-    name: 'Rice - 50kg Bag',
-    price: 8500,
-    rating: 4.8,
-    reviews: 124,
-    seller: 'Metro Wholesale',
-    unit: 'per bag',
-    description: 'Premium quality Basmati rice, perfect for retail shops. Long grain, aromatic, and carefully selected for the best quality.',
-    inStock: true,
-    stockCount: 45,
-    image: 'https://images.unsplash.com/photo-1646980990815-1e97d5ee932f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyaWNlJTIwYmFnJTIwZ3JhaW5zfGVufDF8fHx8MTc2MzY0MTk3NHww&ixlib=rb-4.1.0&q=80&w=1080',
-    features: [
-      'Premium Basmati Quality',
-      'Long Grain Rice',
-      'Sealed 50kg Bags',
-      'Direct from Mills'
-    ]
+  // Use real product from context, or fallback to sample data
+  const product = selectedProduct || {
+    _id: '1',
+    name: 'Product Not Found',
+    price: 0,
+    rating: { average: 0, count: 0 },
+    supplierName: 'Unknown',
+    unit: 'per unit',
+    description: 'Please select a product from the marketplace.',
+    stockQuantity: 0,
+    mainImage: 'https://images.unsplash.com/photo-1646980990815-1e97d5ee932f',
+    features: []
+  };
+
+  // Map product fields to match display names
+  const displayProduct = {
+    _id: product._id || product.id,
+    name: product.name,
+    price: product.price,
+    rating: product.rating?.average || product.rating || 0,
+    reviews: product.rating?.count || product.reviews || 0,
+    seller: product.supplierName || product.seller || 'Unknown Supplier',
+    unit: product.unit,
+    description: product.description,
+    inStock: product.stockQuantity > 0,
+    stockCount: product.stockQuantity || 0,
+    image: product.mainImage || product.image,
+    features: product.features || []
   };
 
   const handleQuantityChange = (delta: number) => {
     const newQuantity = quantity + delta;
-    if (newQuantity >= 1 && newQuantity <= product.stockCount) {
+    if (newQuantity >= 1 && newQuantity <= displayProduct.stockCount) {
       setQuantity(newQuantity);
     }
   };
 
-  const totalPrice = product.price * quantity;
+  const handleAddToCart = () => {
+    addItem({
+      productId: displayProduct._id,
+      productName: displayProduct.name,
+      price: displayProduct.price,
+      quantity: quantity,
+      supplier: product.supplier?._id || product.supplier || displayProduct._id,
+      supplierName: displayProduct.seller,
+      image: displayProduct.image
+    });
+    setShowSuccess(true);
+    setTimeout(() => {
+      setShowSuccess(false);
+      navigateTo('shopping-cart');
+    }, 1500);
+  };
+
+  const totalPrice = displayProduct.price * quantity;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e8f0f2] to-[#d4e8e4] pb-24">
@@ -52,9 +81,14 @@ export function ProductDetail() {
           <p className="text-[#102542]">Product Details</p>
           <button 
             onClick={() => navigateTo('shopping-cart')}
-            className="w-10 h-10 rounded-full bg-white/50 backdrop-blur-sm flex items-center justify-center text-[#102542] hover:bg-white/70 transition-colors"
+            className="w-10 h-10 rounded-full bg-white/50 backdrop-blur-sm flex items-center justify-center text-[#102542] hover:bg-white/70 transition-colors relative"
           >
             <ShoppingCart className="w-5 h-5" />
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                {totalItems}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -67,8 +101,8 @@ export function ProductDetail() {
       >
         <div className="h-64 bg-gray-100">
           <ImageWithFallback 
-            src={product.image} 
-            alt={product.name}
+            src={displayProduct.image} 
+            alt={displayProduct.name}
             className="w-full h-full object-cover"
           />
         </div>
@@ -113,12 +147,12 @@ export function ProductDetail() {
 
           {/* Description */}
           <p className="text-[#102542] text-sm leading-relaxed mb-4 opacity-80">
-            {product.description}
+            {displayProduct.description}
           </p>
 
           {/* Features */}
           <div className="grid grid-cols-2 gap-3">
-            {product.features.map((feature, index) => (
+            {displayProduct.features.length > 0 && displayProduct.features.map((feature, index) => (
               <div key={index} className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#3D8A75]" />
                 <span className="text-[#102542] text-xs opacity-80">{feature}</span>
@@ -166,11 +200,11 @@ export function ProductDetail() {
             </button>
             <div className="flex-1 text-center">
               <p className="text-[#102542] text-[24px]">{quantity}</p>
-              <p className="text-gray-500 text-xs">{quantity > 1 ? 'bags' : 'bag'}</p>
+              <p className="text-gray-500 text-xs">{quantity > 1 ? 'units' : 'unit'}</p>
             </div>
             <button
               onClick={() => handleQuantityChange(1)}
-              disabled={quantity >= product.stockCount}
+              disabled={quantity >= displayProduct.stockCount}
               className="w-10 h-10 rounded-full bg-white/70 backdrop-blur-sm flex items-center justify-center text-[#102542] hover:bg-white transition-colors disabled:opacity-40"
             >
               <Plus className="w-5 h-5" />
@@ -178,6 +212,21 @@ export function ProductDetail() {
           </div>
         </motion.div>
       </div>
+
+      {/* Success Message */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50"
+          >
+            <Check className="w-5 h-5" />
+            <span>Added to cart!</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-white/60 px-6 py-4">
@@ -187,8 +236,9 @@ export function ProductDetail() {
             <p className="text-[#102542] text-[20px]">PKR {totalPrice.toLocaleString()}</p>
           </div>
           <button
-            onClick={() => navigateTo('shopping-cart')}
-            className="flex-1 bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] h-12 rounded-xl text-white font-medium flex items-center justify-center gap-2 hover:shadow-lg transition-all"
+            onClick={handleAddToCart}
+            disabled={!displayProduct.inStock}
+            className="flex-1 bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] h-12 rounded-xl text-white font-medium flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ShoppingCart className="w-5 h-5" />
             Add to Cart

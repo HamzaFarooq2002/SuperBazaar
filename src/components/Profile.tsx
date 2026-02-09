@@ -1,10 +1,19 @@
 import React, { useContext } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import { ArrowLeft, User, Mail, Phone, Building, MapPin, Edit, LogOut } from 'lucide-react';
 
 export function Profile() {
   const { navigateTo } = useContext(AppContext);
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    if (confirm('Are you sure you want to logout?')) {
+      logout();
+      navigateTo('login');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
@@ -29,9 +38,9 @@ export function Profile() {
           <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#3D8A75] to-[#102542] flex items-center justify-center mx-auto mb-4">
             <User className="w-12 h-12 text-white" />
           </div>
-          <h3 className="text-[#102542] mb-1">Ahmed Khan</h3>
-          <p className="text-gray-600 mb-1">Shop Owner</p>
-          <p className="text-gray-500 text-sm mb-4">Khan General Store</p>
+          <h3 className="text-[#102542] mb-1">{user?.name || 'User'}</h3>
+          <p className="text-gray-600 mb-1">{user?.userType === 'merchant' ? 'Shop Owner' : 'Customer'}</p>
+          <p className="text-gray-500 text-sm mb-4">{user?.businessName || 'Business Name'}</p>
           <button className="px-6 py-2 rounded-xl bg-[#3D8A75] text-white flex items-center gap-2 mx-auto hover:bg-[#2d6a5c] transition-colors">
             <Edit className="w-4 h-4" />
             Edit Profile
@@ -54,7 +63,7 @@ export function Profile() {
               </div>
               <div className="flex-1">
                 <p className="text-gray-500 mb-1">Email</p>
-                <p className="text-[#102542]">ahmed.khan@example.com</p>
+                <p className="text-[#102542]">{user?.email || 'Not provided'}</p>
               </div>
             </div>
 
@@ -64,7 +73,7 @@ export function Profile() {
               </div>
               <div className="flex-1">
                 <p className="text-gray-500 mb-1">Phone</p>
-                <p className="text-[#102542]">+92 300 1234567</p>
+                <p className="text-[#102542]">{user?.phone || 'Not provided'}</p>
               </div>
             </div>
 
@@ -74,7 +83,7 @@ export function Profile() {
               </div>
               <div className="flex-1">
                 <p className="text-gray-500 mb-1">Business</p>
-                <p className="text-[#102542]">Khan General Store</p>
+                <p className="text-[#102542]">{user?.businessName || 'Not provided'}</p>
               </div>
             </div>
 
@@ -84,7 +93,7 @@ export function Profile() {
               </div>
               <div className="flex-1">
                 <p className="text-gray-500 mb-1">Location</p>
-                <p className="text-[#102542]">Saddar, Karachi</p>
+                <p className="text-[#102542]">{user?.businessAddress || 'Not provided'}</p>
               </div>
             </div>
           </div>
@@ -133,7 +142,7 @@ export function Profile() {
           </button>
 
           <button 
-            onClick={() => navigateTo('login')}
+            onClick={handleLogout}
             className="w-full glass rounded-2xl p-4 shadow-lg flex items-center justify-center gap-2 text-red-600 hover:shadow-xl transition-shadow"
           >
             <LogOut className="w-5 h-5" />

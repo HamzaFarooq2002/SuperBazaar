@@ -1,20 +1,43 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
-import { Mail, Lock, User, Building, ShoppingCart } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { Mail, Lock, User, Building, ShoppingCart, Phone } from 'lucide-react';
 
 export function SignUp() {
   const { navigateTo } = useContext(AppContext);
+  const { signup } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     business: '',
     email: '',
-    password: ''
+    password: '',
+    phone: ''
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
-    navigateTo('dashboard');
+    setError('');
+    setLoading(true);
+
+    try {
+      await signup({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || '+923000000000',
+        password: formData.password,
+        userType: 'merchant',
+        businessName: formData.business,
+        businessAddress: 'Karachi'
+      });
+      navigateTo('dashboard');
+    } catch (err: any) {
+      setError(err?.error?.message || 'Signup failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,6 +73,12 @@ export function SignUp() {
           <p className="text-[#3D8A75] text-center mb-1">Smart Retail Starts Here</p>
           <p className="text-gray-600 mb-8 text-center">Get instant access to Stocknow Paylater credit</p>
           
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl mb-4">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-gray-700 mb-2">Full Name</label>
@@ -82,6 +111,20 @@ export function SignUp() {
             </div>
             
             <div>
+              <label className="block text-gray-700 mb-2">Phone Number</label>
+              <div className="relative">
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#3D8A75]"
+                  placeholder="+923001234567"
+                />
+              </div>
+            </div>
+
+            <div>
               <label className="block text-gray-700 mb-2">Email</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -113,9 +156,10 @@ export function SignUp() {
             
             <button
               type="submit"
-              className="w-full py-4 rounded-xl bg-[#3D8A75] text-white transition-all hover:bg-[#2d6a5c] mt-6"
+              disabled={loading}
+              className="w-full py-4 rounded-xl bg-[#3D8A75] text-white transition-all hover:bg-[#2d6a5c] mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Sign Up
+              {loading ? 'Creating Account...' : 'Sign Up'}
             </button>
           </form>
           

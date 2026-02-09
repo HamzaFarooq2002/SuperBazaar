@@ -1,20 +1,95 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
+import { useOrder } from '../hooks/useOrder';
+import api from '../services/api';
 import { ArrowLeft, CreditCard, Wallet, CircleDollarSign, Banknote, ChevronRight } from 'lucide-react';
 
 export function PaymentMethod() {
   const { navigateTo } = useContext(AppContext);
+  const { items, totalPrice, clearCart } = useCart();
+  const { user } = useAuth();
+  const { setCurrentOrder } = useOrder();
   const [selectedMethod, setSelectedMethod] = useState<'cash' | 'installment' | 'nano-loan' | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const orderTotal = 24200;
+  const deliveryFee = 500;
+  const orderTotal = totalPrice + deliveryFee;
+
+  const handleConfirmPayment = async () => {
+    if (!selectedMethod) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Map UI payment method to API payment method
+      // Backend accepts: 'cash', 'bank_transfer', 'snpl', 'bnpl'
+      const apiPaymentMethod = 
+        selectedMethod === 'installment' ? 'bnpl' :
+        selectedMethod === 'nano-loan' ? 'snpl' : 'cash';
+
+      // Create order
+      const orderData = {
+        items: items.map(item => ({
+          productId: item.productId,  // Backend expects "productId" not "product"
+          quantity: item.quantity,
+          price: item.price
+        })),
+        paymentMethod: apiPaymentMethod,
+        shippingAddress: {
+          street: user?.businessAddress || 'Shop address',
+          city: 'Karachi',
+          postalCode: '75500',
+          country: 'Pakistan'
+        }
+      };
+
+      // Debug logging
+      console.log('🛒 Cart Items:', items);
+      console.log('📦 Order Data Being Sent:', orderData);
+      console.log('🆔 Product IDs:', orderData.items.map(i => i.productId));
+
+      // Validate product IDs before sending
+      const invalidItems = orderData.items.filter(item => !item.productId || item.productId === 'undefined' || item.productId === '1');
+      if (invalidItems.length > 0) {
+        console.error('❌ Invalid items detected:', invalidItems);
+        throw new Error(`Invalid product IDs detected. Please clear your cart and add products fresh from marketplace. Invalid items: ${invalidItems.length}`);
+      }
+
+      const response = await api.orders.createOrder(orderData);
+
+      if (response.success) {
+        // Store order for confirmation page
+        setCurrentOrder(response.data.order);
+        // Clear cart after successful order
+        clearCart();
+        // Navigate to confirmation
+        navigateTo('order-confirmation');
+      }
+    } catch (err: any) {
+      // Extract the most specific error message available
+      // The api.js interceptor wraps errors as: { success, error: { message, status, data } }
+      // The backend returns: { success, message, error: "detailed error string" }
+      const backendError = err?.error?.data?.error;  // The detailed error from backend
+      const backendMessage = err?.error?.data?.message || err?.error?.message;
+      const errorMessage = backendError || backendMessage || err?.message || 'Failed to create order';
+      setError(errorMessage);
+      console.error('❌ Order creation error:', JSON.stringify(err, null, 2));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const paymentMethods = [
     {
       id: 'installment' as const,
       icon: CreditCard,
       title: 'Pay in Installments',
-      description: 'Split into 4 easy payments of PKR 6,050',
+      description: `Split into 4 easy payments of PKR ${Math.round(orderTotal / 4).toLocaleString()}`,
       badge: 'Popular',
       color: 'from-[#3D8A75] to-[#102542]',
       details: '0% markup for 3 months'
@@ -147,7 +222,7 @@ export function PaymentMethod() {
                     {[1, 2, 3, 4].map((num) => (
                       <div key={num} className="flex justify-between items-center text-sm">
                         <span className="text-gray-600">Payment {num}</span>
-                        <span className="text-[#102542]">PKR 6,050</span>
+                        <span className="text-[#102542]">PKR {Math.round(orderTotal / 4).toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
@@ -181,6 +256,17 @@ export function PaymentMethod() {
           ))}
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl mb-4"
+          >
+            {error}
+          </motion.div>
+        )}
+
         {/* Security Note */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -197,19 +283,15 @@ export function PaymentMethod() {
       {/* Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-white/60 px-6 py-4">
         <button
-          onClick={() => {
-            if (selectedMethod) {
-              navigateTo('order-confirmation');
-            }
-          }}
-          disabled={!selectedMethod}
+          onClick={handleConfirmPayment}
+          disabled={!selectedMethod || loading}
           className={`w-full h-12 rounded-xl text-white font-medium transition-all ${
-            selectedMethod 
+            selectedMethod && !loading
               ? 'bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] hover:shadow-lg hover:scale-[1.02]' 
               : 'bg-white/30 text-[#102542]/40 cursor-not-allowed'
           }`}
         >
-          Confirm Payment Method
+          {loading ? 'Creating Order...' : 'Confirm Payment Method'}
         </button>
       </div>
     </div>

@@ -108,16 +108,24 @@ const createOrder = async (req, res) => {
     }
     
     // Create transaction
-    await Transaction.create({
-      user: req.user.id,
-      type: 'expense',
-      category: 'stock_purchase',
-      amount: totalAmount,
-      description: `Order #${order.orderNumber}`,
-      relatedOrder: order._id,
-      paymentMethod,
-      status: 'completed'
-    });
+    // Map order paymentMethod to transaction-safe value
+    const txnPaymentMethod = paymentMethod || 'other';
+    
+    try {
+      await Transaction.create({
+        user: req.user.id,
+        type: 'expense',
+        category: 'stock_purchase',
+        amount: totalAmount,
+        description: `Order #${order.orderNumber}`,
+        relatedOrder: order._id,
+        paymentMethod: txnPaymentMethod,
+        status: 'completed'
+      });
+    } catch (txnError) {
+      // Log but don't fail the order if transaction logging fails
+      console.error('Transaction creation warning:', txnError.message);
+    }
     
     res.status(201).json({
       success: true,

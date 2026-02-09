@@ -63,7 +63,7 @@ const transactionSchema = new mongoose.Schema({
   // Payment Details
   paymentMethod: {
     type: String,
-    enum: ['cash', 'bank_transfer', 'mobile_banking', 'credit', 'other']
+    enum: ['cash', 'bank_transfer', 'mobile_banking', 'credit', 'snpl', 'bnpl', 'other']
   },
   
   // Status
@@ -86,8 +86,9 @@ const transactionSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Generate transaction ID before saving
-transactionSchema.pre('save', async function(next) {
+// Generate transaction ID before validation (must run before validate, not save,
+// because transactionId is required and validation runs before save hooks)
+transactionSchema.pre('validate', async function(next) {
   if (!this.transactionId) {
     this.transactionId = `TXN-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   }

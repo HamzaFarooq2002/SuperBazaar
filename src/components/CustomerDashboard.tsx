@@ -1,11 +1,13 @@
 import React, { useContext } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useCart } from '../hooks/useCart';
 import { ShoppingBag, CreditCard, Gift, TrendingUp, Package, Wallet, Bell, User, ChevronRight, Star, Zap } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function CustomerDashboard() {
   const { navigateTo } = useContext(AppContext);
+  const { totalItems } = useCart();
 
   const quickActions = [
     { icon: ShoppingBag, label: 'Shop Now', color: 'from-[#3D8A75] to-[#2d6b5c]', screen: 'customer-marketplace' as const },
@@ -69,9 +71,11 @@ export function CustomerDashboard() {
               className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors relative"
             >
               <ShoppingBag className="w-6 h-6" />
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">
-                3
-              </div>
+              {totalItems > 0 && (
+                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                  {totalItems}
+                </div>
+              )}
             </button>
             <button 
               onClick={() => navigateTo('profile')}

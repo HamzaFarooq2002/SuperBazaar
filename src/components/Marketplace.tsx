@@ -1,13 +1,15 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useCart } from '../hooks/useCart';
 import { ArrowLeft, Search, ShoppingCart, Star, CreditCard, Package } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import api from '../services/api';
 import type { Product } from '../services/api.types';
 
 export function Marketplace() {
-  const { navigateTo } = useContext(AppContext);
+  const { navigateTo, setSelectedProduct } = useContext(AppContext);
+  const { addItem, totalItems } = useCart();
 
   const categories = ['All', 'Groceries', 'Beverages', 'Snacks', 'Personal Care', 'Household'];
   const [activeCategory, setActiveCategory] = useState('All');
@@ -36,6 +38,19 @@ export function Marketplace() {
     }
   };
 
+  const handleQuickAdd = (product: Product, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation to detail page
+    addItem({
+      productId: product._id,
+      productName: product.name,
+      price: product.price,
+      quantity: 1,
+      supplier: product.supplier?._id || product.supplier || product._id,
+      supplierName: product.supplierName,
+      image: product.mainImage
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
       {/* Header */}
@@ -48,10 +63,15 @@ export function Marketplace() {
             <ArrowLeft className="w-6 h-6" />
           </button>
           <button 
-            onClick={() => navigateTo('order-tracking')}
-            className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+            onClick={() => navigateTo('shopping-cart')}
+            className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors relative"
           >
             <ShoppingCart className="w-6 h-6" />
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                {totalItems}
+              </span>
+            )}
           </button>
         </div>
         <h2 className="text-white mb-2">Wholesale Marketplace</h2>
@@ -122,7 +142,10 @@ export function Marketplace() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: index * 0.05 }}
-              onClick={() => navigateTo('product-detail')}
+              onClick={() => {
+                setSelectedProduct?.(item);
+                navigateTo('product-detail');
+              }}
               className="glass rounded-2xl overflow-hidden shadow-lg cursor-pointer hover:shadow-xl transition-shadow flex flex-col"
             >
               <div className="h-36 bg-gray-100 overflow-hidden">
@@ -145,10 +168,11 @@ export function Marketplace() {
                   <p className="text-gray-400 text-xs">{item.unit}</p>
                 </div>
                 <button 
+                  onClick={(e) => handleQuickAdd(item, e)}
                   className="w-full py-2 rounded-lg bg-[#3D8A75] text-white text-sm hover:bg-[#2d6a5c] transition-colors flex items-center justify-center gap-1 mt-auto"
                 >
                   <CreditCard className="w-4 h-4" />
-                  Buy with Paylater
+                  Add to Cart
                 </button>
               </div>
             </motion.div>

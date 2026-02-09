@@ -1,54 +1,31 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useCart } from '../hooks/useCart';
 import { ArrowLeft, Plus, Minus, Trash2, ShoppingBag, Tag } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function ShoppingCart() {
   const { navigateTo } = useContext(AppContext);
+  const { items, updateQuantity, removeItem, totalPrice } = useCart();
 
-  const [cartItems, setCartItems] = useState([
-    {
-      id: '1',
-      name: 'Rice - 50kg Bag',
-      price: 8500,
-      quantity: 2,
-      seller: 'Metro Wholesale',
-      image: 'https://images.unsplash.com/photo-1646980990815-1e97d5ee932f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyaWNlJTIwYmFnJTIwZ3JhaW5zfGVufDF8fHx8MTc2MzY0MTk3NHww&ixlib=rb-4.1.0&q=80&w=1080'
-    },
-    {
-      id: '2',
-      name: 'Cooking Oil - 5L (Pack of 4)',
-      price: 3200,
-      quantity: 1,
-      seller: 'Bismillah Traders',
-      image: 'https://images.unsplash.com/photo-1757801333069-f7b3cabaec4a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb29raW5nJTIwb2lsJTIwYm90dGxlc3xlbnwxfHx8fDE3NjM2NDE5NzR8MA&ixlib=rb-4.1.0&q=80&w=1080'
-    },
-    {
-      id: '3',
-      name: 'Tea - 1kg Pack',
-      price: 1500,
-      quantity: 3,
-      seller: 'Shah Wholesale',
-      image: 'https://images.unsplash.com/photo-1597916375079-1201154a650c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWElMjBsZWF2ZXMlMjBwYWNrYWdlfGVufDF8fHx8MTc2MzY0MTk3NXww&ixlib=rb-4.1.0&q=80&w=1080'
+  const handleUpdateQuantity = (productId: string, delta: number) => {
+    const item = items.find(i => i.productId === productId);
+    if (item) {
+      const newQuantity = item.quantity + delta;
+      if (newQuantity >= 1) {
+        updateQuantity(productId, newQuantity);
+      }
     }
-  ]);
-
-  const updateQuantity = (id: string, delta: number) => {
-    setCartItems(items =>
-      items.map(item =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
-      )
-    );
   };
 
-  const removeItem = (id: string) => {
-    setCartItems(items => items.filter(item => item.id !== id));
+  const handleRemove = (productId: string) => {
+    if (confirm('Remove this item from cart?')) {
+      removeItem(productId);
+    }
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = totalPrice;
   const deliveryFee = 500;
   const discount = 0;
   const total = subtotal + deliveryFee - discount;
@@ -71,7 +48,7 @@ export function ShoppingCart() {
 
       <div className="px-6 mt-6">
         {/* Cart Empty State */}
-        {cartItems.length === 0 ? (
+        {items.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -91,9 +68,9 @@ export function ShoppingCart() {
           <>
             {/* Cart Items */}
             <div className="space-y-4 mb-6">
-              {cartItems.map((item, index) => (
+              {items.map((item, index) => (
                 <motion.div
-                  key={item.id}
+                  key={item.productId}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
@@ -103,18 +80,18 @@ export function ShoppingCart() {
                     <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
                       <ImageWithFallback 
                         src={item.image} 
-                        alt={item.name}
+                        alt={item.productName}
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <div className="flex-1">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <p className="text-[#102542] text-sm mb-1">{item.name}</p>
-                          <p className="text-gray-500 text-xs">{item.seller}</p>
+                          <p className="text-[#102542] text-sm mb-1">{item.productName}</p>
+                          <p className="text-gray-500 text-xs">{item.supplierName}</p>
                         </div>
                         <button
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => handleRemove(item.productId)}
                           className="text-red-500 hover:text-red-600 transition-colors"
                         >
                           <Trash2 className="w-5 h-5" />
@@ -124,7 +101,7 @@ export function ShoppingCart() {
                         <p className="text-[#3D8A75]">PKR {item.price.toLocaleString()}</p>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => updateQuantity(item.id, -1)}
+                            onClick={() => handleUpdateQuantity(item.productId, -1)}
                             disabled={item.quantity <= 1}
                             className="w-7 h-7 rounded-full bg-white/70 flex items-center justify-center text-[#102542] hover:bg-white transition-colors disabled:opacity-40"
                           >
@@ -132,7 +109,7 @@ export function ShoppingCart() {
                           </button>
                           <span className="text-[#102542] w-8 text-center">{item.quantity}</span>
                           <button
-                            onClick={() => updateQuantity(item.id, 1)}
+                            onClick={() => handleUpdateQuantity(item.productId, 1)}
                             className="w-7 h-7 rounded-full bg-white/70 flex items-center justify-center text-[#102542] hover:bg-white transition-colors"
                           >
                             <Plus className="w-4 h-4" />
@@ -175,7 +152,7 @@ export function ShoppingCart() {
               <p className="text-[#102542] mb-4">Order Summary</p>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600 text-sm">Subtotal ({cartItems.length} items)</span>
+                  <span className="text-gray-600 text-sm">Subtotal ({items.length} items)</span>
                   <span className="text-[#102542]">PKR {subtotal.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -199,7 +176,7 @@ export function ShoppingCart() {
       </div>
 
       {/* Bottom Action Bar */}
-      {cartItems.length > 0 && (
+      {items.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-white/60 px-6 py-4">
           <div className="flex items-center gap-4">
             <div className="flex-1">
