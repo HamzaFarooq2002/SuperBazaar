@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useContext } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { CheckCircle } from 'lucide-react';
@@ -44,7 +44,7 @@ export function SuccessScreen() {
           transition={{ delay: 0.7 }}
           className="text-[#CDD7D6] mb-8 max-w-sm mx-auto"
         >
-          Your invoice has been created successfully and sent to the client.
+          Your application has been submitted successfully.
         </motion.p>
 
         <motion.div
@@ -54,10 +54,10 @@ export function SuccessScreen() {
           className="space-y-3"
         >
           <button
-            onClick={() => navigateTo('invoices')}
+            onClick={() => navigateTo('payments-main')}
             className="w-full max-w-xs py-4 rounded-xl bg-white text-[#102542] transition-all hover:bg-white/90"
           >
-            View Invoices
+            View Payments
           </button>
           <button
             onClick={() => navigateTo('dashboard')}

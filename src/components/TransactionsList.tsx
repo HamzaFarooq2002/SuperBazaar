@@ -1,24 +1,32 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
-import { ArrowLeft, Search, Filter, TrendingUp, TrendingDown } from 'lucide-react';
+import api from '../services/api';
+import { ArrowLeft, Search, Filter, TrendingUp, TrendingDown, Inbox } from 'lucide-react';
 
 export function TransactionsList() {
   const { navigateTo, setSelectedTransaction } = useContext(AppContext);
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const transactions = [
-    { id: '1', name: 'Stock Purchase - Metro Wholesale', amount: 45200, date: 'Nov 20, 2025', time: '2:30 PM', type: 'expense', category: 'Inventory' },
-    { id: '2', name: 'Sales Revenue', amount: 78500, date: 'Nov 20, 2025', time: '11:20 AM', type: 'income', category: 'Revenue' },
-    { id: '3', name: 'Inventory - Bismillah Traders', amount: 32800, date: 'Nov 19, 2025', time: '4:15 PM', type: 'expense', category: 'Inventory' },
-    { id: '4', name: 'Customer Payment', amount: 15900, date: 'Nov 19, 2025', time: '9:00 AM', type: 'income', category: 'Revenue' },
-    { id: '5', name: 'Stock - Shah Wholesale', amount: 28400, date: 'Nov 18, 2025', time: '3:45 PM', type: 'expense', category: 'Inventory' },
-    { id: '6', name: 'Shop Rent', amount: 35000, date: 'Nov 18, 2025', time: '1:20 PM', type: 'expense', category: 'Operations' },
-    { id: '7', name: 'Daily Sales', amount: 52300, date: 'Nov 17, 2025', time: '5:30 PM', type: 'income', category: 'Revenue' },
-    { id: '8', name: 'Electricity Bill', amount: 8500, date: 'Nov 17, 2025', time: '10:15 AM', type: 'expense', category: 'Utilities' },
-  ];
+  useEffect(() => {
+    const loadTransactions = async () => {
+      try {
+        const response = await api.users.getTransactions();
+        if (response.success) {
+          setTransactions(response.data?.transactions || response.data || []);
+        }
+      } catch (error) {
+        console.error('Failed to load transactions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTransactions();
+  }, []);
 
-  const filteredTransactions = transactions.filter(t => 
+  const filteredTransactions = transactions.filter((t: any) => 
     filter === 'all' ? true : t.type === filter
   );
 
@@ -81,47 +89,64 @@ export function TransactionsList() {
 
       {/* Transactions List */}
       <div className="px-6 mt-6 space-y-3">
-        {filteredTransactions.map((transaction, index) => (
-          <motion.div
-            key={transaction.id}
-            initial={{ x: -20, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: index * 0.05 }}
-            onClick={() => {
-              setSelectedTransaction?.(transaction.id);
-              navigateTo('transaction-details');
-            }}
-            className="glass rounded-2xl p-4 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex gap-4">
-                <div className={`w-12 h-12 rounded-xl ${
-                  transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'
-                } flex items-center justify-center`}>
-                  {transaction.type === 'income' ? (
-                    <TrendingUp className="w-6 h-6 text-green-600" />
-                  ) : (
-                    <TrendingDown className="w-6 h-6 text-red-600" />
-                  )}
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin w-8 h-8 border-2 border-[#3D8A75] border-t-transparent rounded-full mx-auto mb-3"></div>
+            <p className="text-gray-500">Loading transactions...</p>
+          </div>
+        ) : filteredTransactions.length === 0 ? (
+          <div className="text-center py-12">
+            <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 mb-1">No transactions yet</p>
+            <p className="text-gray-400 text-sm">Your transactions will appear here as you use the app</p>
+          </div>
+        ) : (
+          filteredTransactions.map((transaction: any, index: number) => (
+            <motion.div
+              key={transaction._id || transaction.id || index}
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: index * 0.05 }}
+              onClick={() => {
+                setSelectedTransaction?.(transaction._id || transaction.id);
+                navigateTo('transaction-details');
+              }}
+              className="glass rounded-2xl p-4 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex gap-4">
+                  <div className={`w-12 h-12 rounded-xl ${
+                    transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'
+                  } flex items-center justify-center`}>
+                    {transaction.type === 'income' ? (
+                      <TrendingUp className="w-6 h-6 text-green-600" />
+                    ) : (
+                      <TrendingDown className="w-6 h-6 text-red-600" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[#102542] mb-1">{transaction.description || transaction.name || 'Transaction'}</p>
+                    <p className="text-gray-500">
+                      {transaction.transactionDate 
+                        ? new Date(transaction.transactionDate).toLocaleDateString() 
+                        : transaction.date || ''}
+                    </p>
+                    <span className="inline-block mt-1 px-2 py-1 rounded-full bg-[#CDD7D6] text-[#102542] text-xs">
+                      {transaction.category || transaction.type || 'General'}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[#102542] mb-1">{transaction.name}</p>
-                  <p className="text-gray-500">{transaction.date} • {transaction.time}</p>
-                  <span className="inline-block mt-1 px-2 py-1 rounded-full bg-[#CDD7D6] text-[#102542] text-xs">
-                    {transaction.category}
+                <div className="text-right">
+                  <span className={`block ${
+                    transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {transaction.type === 'income' ? '+' : '-'}PKR {Math.abs(transaction.amount || 0).toLocaleString()}
                   </span>
                 </div>
               </div>
-              <div className="text-right">
-                <span className={`block ${
-                  transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {transaction.type === 'income' ? '+' : '-'}PKR {transaction.amount.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          ))
+        )}
       </div>
     </div>
   );

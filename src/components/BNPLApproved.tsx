@@ -1,11 +1,34 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import api from '../services/api';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { X, CheckCircle, Calendar, Shield, Home, Receipt, Wallet, User } from 'lucide-react';
 
 export function BNPLApproved() {
   const { navigateTo } = useContext(AppContext);
+  const [latestBNPL, setLatestBNPL] = useState<any>(null);
+
+  useEffect(() => {
+    const loadLatestBNPL = async () => {
+      try {
+        const response = await api.credit.getCreditLines();
+        if (response.success) {
+          const lines = response.data?.creditLines || response.data || [];
+          const bnplLines = lines.filter((cl: any) => cl.type === 'bnpl');
+          if (bnplLines.length > 0) {
+            setLatestBNPL(bnplLines[0]); // Most recent (sorted desc by createdAt)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load BNPL data:', error);
+      }
+    };
+    loadLatestBNPL();
+  }, []);
+
+  const loanAmount = latestBNPL?.principalAmount || 0;
+  const installmentCount = latestBNPL?.installments?.length || 4;
 
   return (
     <div className="min-h-screen bg-white pb-20">
@@ -25,11 +48,7 @@ export function BNPLApproved() {
 
       <div className="px-6 py-8 space-y-6">
         {/* Hero Message */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
           <h2 className="text-[28px] font-bold text-[#121417] mb-2">
             Congratulations! You're Approved.
           </h2>
@@ -42,7 +61,6 @@ export function BNPLApproved() {
           transition={{ delay: 0.1 }}
           className="relative h-[247px] rounded-xl overflow-hidden"
         >
-          {/* Background Image with Gradient Overlay */}
           <div className="absolute inset-0">
             <ImageWithFallback
               src="https://images.unsplash.com/photo-1703379943328-bfe13999c988?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnb2xkZW4lMjBjZWxlYnJhdGlvbiUyMGdyYWRpZW50fGVufDF8fHx8MTc2Mzc2NzExM3ww&ixlib=rb-4.1.0&q=80&w=1080"
@@ -51,8 +69,6 @@ export function BNPLApproved() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           </div>
-
-          {/* Content */}
           <div className="relative h-full flex flex-col justify-between p-6">
             <div className="flex-1 flex items-center justify-center">
               <motion.h3
@@ -64,7 +80,6 @@ export function BNPLApproved() {
                 HOORAY
               </motion.h3>
             </div>
-            
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -72,11 +87,35 @@ export function BNPLApproved() {
               className="space-y-1"
             >
               <p className="text-[14px] text-white">Loan Amount</p>
-              <p className="text-[24px] font-bold text-white">PKR 1,500</p>
-              <p className="text-[16px] font-medium text-white">4 Interest-Free Installments</p>
+              <p className="text-[24px] font-bold text-white">PKR {loanAmount.toLocaleString()}</p>
+              <p className="text-[16px] font-medium text-white">{installmentCount} Interest-Free Installments</p>
             </motion.div>
           </div>
         </motion.div>
+
+        {/* Installment Details */}
+        {latestBNPL?.installments && latestBNPL.installments.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45 }}
+          >
+            <h3 className="text-[16px] font-bold text-[#121417] mb-3">Payment Schedule</h3>
+            <div className="space-y-2">
+              {latestBNPL.installments.map((inst: any, i: number) => (
+                <div key={i} className="flex justify-between items-center bg-gray-50 rounded-xl p-3">
+                  <span className="text-[14px] text-[#121417]">Installment {i + 1}</span>
+                  <div className="text-right">
+                    <p className="text-[14px] font-bold text-[#121417]">PKR {(inst.amount || 0).toLocaleString()}</p>
+                    <p className="text-[11px] text-gray-500">
+                      {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString('en-PK', { month: 'short', day: 'numeric' }) : '--'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* Benefits */}
         <motion.div
@@ -91,14 +130,12 @@ export function BNPLApproved() {
             </div>
             <p className="text-[16px] text-[#121417]">No Fees</p>
           </div>
-
           <div className="flex items-center gap-4 bg-[#f0f5f2] rounded-xl p-4">
             <div className="w-10 h-10 bg-[#f0f5f2] rounded-lg flex items-center justify-center">
               <Calendar className="w-6 h-6 text-[#3D8A75]" />
             </div>
             <p className="text-[16px] text-[#121417]">First payment due in 30 days</p>
           </div>
-
           <div className="flex items-center gap-4 bg-[#f0f5f2] rounded-xl p-4">
             <div className="w-10 h-10 bg-[#f0f5f2] rounded-lg flex items-center justify-center">
               <Shield className="w-6 h-6 text-[#3D8A75]" />
@@ -130,31 +167,19 @@ export function BNPLApproved() {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3">
         <div className="flex items-center justify-around max-w-md mx-auto">
-          <button
-            onClick={() => navigateTo('dashboard')}
-            className="flex flex-col items-center gap-1"
-          >
+          <button onClick={() => navigateTo('dashboard')} className="flex flex-col items-center gap-1">
             <Home className="w-6 h-6 text-gray-400" />
             <span className="text-[11px] text-gray-400">Home</span>
           </button>
-          <button
-            onClick={() => navigateTo('invoices')}
-            className="flex flex-col items-center gap-1"
-          >
+          <button onClick={() => navigateTo('order-tracking')} className="flex flex-col items-center gap-1">
             <Receipt className="w-6 h-6 text-gray-400" />
-            <span className="text-[11px] text-gray-400">Invoices</span>
+            <span className="text-[11px] text-gray-400">Orders</span>
           </button>
-          <button
-            onClick={() => navigateTo('payments-main')}
-            className="flex flex-col items-center gap-1"
-          >
+          <button onClick={() => navigateTo('payments-main')} className="flex flex-col items-center gap-1">
             <Wallet className="w-6 h-6 text-[#3D8A75]" />
             <span className="text-[11px] text-[#3D8A75]">Payments</span>
           </button>
-          <button
-            onClick={() => navigateTo('profile')}
-            className="flex flex-col items-center gap-1"
-          >
+          <button onClick={() => navigateTo('profile')} className="flex flex-col items-center gap-1">
             <User className="w-6 h-6 text-gray-400" />
             <span className="text-[11px] text-gray-400">Profile</span>
           </button>

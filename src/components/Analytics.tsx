@@ -1,29 +1,114 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
-import { ArrowLeft, TrendingUp, DollarSign, Calendar } from 'lucide-react';
+import api from '../services/api';
+import { ArrowLeft, TrendingUp, DollarSign, Inbox } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export function Analytics() {
   const { navigateTo } = useContext(AppContext);
   const [timeframe, setTimeframe] = useState<'week' | 'month' | 'year'>('month');
+  const [loading, setLoading] = useState(true);
+  const [totalIncome, setTotalIncome] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
+  const [revenueData, setRevenueData] = useState<any[]>([]);
+  const [categoryData, setCategoryData] = useState<any[]>([]);
 
-  const revenueData = [
-    { name: 'Jan', income: 40000, expense: 24000 },
-    { name: 'Feb', income: 35000, expense: 22000 },
-    { name: 'Mar', income: 48000, expense: 28000 },
-    { name: 'Apr', income: 52000, expense: 30000 },
-    { name: 'May', income: 45000, expense: 26000 },
-    { name: 'Jun', income: 58000, expense: 32000 },
-  ];
+  useEffect(() => {
+    const loadAnalytics = async () => {
+      try {
+        // Fetch transactions to build analytics
+        const txnResponse = await api.users.getTransactions();
+        if (txnResponse.success) {
+          const transactions = txnResponse.data?.transactions || txnResponse.data || [];
+          
+          // Calculate totals
+          let income = 0;
+          let expenses = 0;
+          const monthlyData: Record<string, { income: number; expense: number }> = {};
+          const categoryMap: Record<string, number> = {};
 
-  const categoryData = [
-    { name: 'Revenue', value: 45, color: '#3D8A75' },
-    { name: 'Operations', value: 20, color: '#102542' },
-    { name: 'Marketing', value: 15, color: '#CDD7D6' },
-    { name: 'Technology', value: 12, color: '#10b981' },
-    { name: 'Other', value: 8, color: '#f59e0b' },
-  ];
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+          transactions.forEach((txn: any) => {
+            const amount = txn.amount || 0;
+            const date = new Date(txn.transactionDate || txn.createdAt);
+            const monthKey = monthNames[date.getMonth()];
+
+            if (!monthlyData[monthKey]) {
+              monthlyData[monthKey] = { income: 0, expense: 0 };
+            }
+
+            if (txn.type === 'income' || txn.type === 'sale' || txn.type === 'loan_disbursement') {
+              income += amount;
+              monthlyData[monthKey].income += amount;
+            } else if (txn.type === 'expense' || txn.type === 'purchase' || txn.type === 'loan_repayment') {
+              expenses += amount;
+              monthlyData[monthKey].expense += amount;
+              // Track categories
+              const cat = txn.category || 'Other';
+              categoryMap[cat] = (categoryMap[cat] || 0) + amount;
+            }
+          });
+
+          setTotalIncome(income);
+          setTotalExpenses(expenses);
+
+          // Convert monthly data to chart format
+          const chartData = Object.entries(monthlyData).map(([name, data]) => ({
+            name,
+            income: data.income,
+            expense: data.expense
+          }));
+          setRevenueData(chartData.length > 0 ? chartData : []);
+
+          // Convert category data to pie chart format
+          const colors = ['#3D8A75', '#102542', '#CDD7D6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+          const catData = Object.entries(categoryMap).map(([name, value], i) => ({
+            name: name.charAt(0).toUpperCase() + name.slice(1),
+            value: Math.round(value),
+            color: colors[i % colors.length]
+          }));
+          setCategoryData(catData);
+        }
+
+        // Also try dashboard API for additional data
+        try {
+          const dashResponse = await api.dashboard.getStats();
+          if (dashResponse.success && dashResponse.data) {
+            if (dashResponse.data.totalRevenue) setTotalIncome(prev => prev || dashResponse.data.totalRevenue);
+            if (dashResponse.data.totalExpenses) setTotalExpenses(prev => prev || dashResponse.data.totalExpenses);
+          }
+        } catch {
+          // Dashboard API is optional
+        }
+      } catch (error) {
+        console.error('Failed to load analytics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAnalytics();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-6">
+        <div className="bg-gradient-to-br from-[#102542] to-[#3D8A75] px-6 pt-12 pb-8">
+          <button onClick={() => navigateTo('dashboard')} className="mb-6 text-white flex items-center gap-2">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h2 className="text-white mb-6">Analytics & Reports</h2>
+        </div>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="animate-spin w-8 h-8 border-2 border-[#3D8A75] border-t-transparent rounded-full mx-auto mb-3"></div>
+            <p className="text-gray-500">Loading analytics...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
@@ -39,36 +124,19 @@ export function Analytics() {
 
         {/* Timeframe Selector */}
         <div className="flex gap-2">
-          <button
-            onClick={() => setTimeframe('week')}
-            className={`px-4 py-2 rounded-full transition-all ${
-              timeframe === 'week' 
-                ? 'bg-white text-[#102542]' 
-                : 'bg-white/20 text-white backdrop-blur-sm'
-            }`}
-          >
-            Week
-          </button>
-          <button
-            onClick={() => setTimeframe('month')}
-            className={`px-4 py-2 rounded-full transition-all ${
-              timeframe === 'month' 
-                ? 'bg-white text-[#102542]' 
-                : 'bg-white/20 text-white backdrop-blur-sm'
-            }`}
-          >
-            Month
-          </button>
-          <button
-            onClick={() => setTimeframe('year')}
-            className={`px-4 py-2 rounded-full transition-all ${
-              timeframe === 'year' 
-                ? 'bg-white text-[#102542]' 
-                : 'bg-white/20 text-white backdrop-blur-sm'
-            }`}
-          >
-            Year
-          </button>
+          {(['week', 'month', 'year'] as const).map((tf) => (
+            <button
+              key={tf}
+              onClick={() => setTimeframe(tf)}
+              className={`px-4 py-2 rounded-full transition-all capitalize ${
+                timeframe === tf 
+                  ? 'bg-white text-[#102542]' 
+                  : 'bg-white/20 text-white backdrop-blur-sm'
+              }`}
+            >
+              {tf}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -86,7 +154,7 @@ export function Analytics() {
               </div>
             </div>
             <p className="text-gray-600 mb-1">Total Income</p>
-            <h3 className="text-green-600">$278,000</h3>
+            <h3 className="text-green-600">PKR {totalIncome.toLocaleString()}</h3>
           </motion.div>
 
           <motion.div
@@ -101,101 +169,121 @@ export function Analytics() {
               </div>
             </div>
             <p className="text-gray-600 mb-1">Total Expenses</p>
-            <h3 className="text-red-600">$162,000</h3>
+            <h3 className="text-red-600">PKR {totalExpenses.toLocaleString()}</h3>
           </motion.div>
         </div>
 
-        {/* Revenue vs Expense Chart */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="glass rounded-3xl p-6 shadow-lg"
-        >
-          <h3 className="text-[#102542] mb-4">Revenue vs Expenses</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#CDD7D6" />
-              <XAxis dataKey="name" stroke="#666" />
-              <YAxis stroke="#666" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                  border: '1px solid #CDD7D6',
-                  borderRadius: '12px',
-                  padding: '12px'
-                }}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="income" stroke="#3D8A75" strokeWidth={3} name="Income" />
-              <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={3} name="Expense" />
-            </LineChart>
-          </ResponsiveContainer>
-        </motion.div>
+        {revenueData.length > 0 ? (
+          <>
+            {/* Revenue vs Expense Chart */}
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="glass rounded-3xl p-6 shadow-lg"
+            >
+              <h3 className="text-[#102542] mb-4">Revenue vs Expenses</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={revenueData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#CDD7D6" />
+                  <XAxis dataKey="name" stroke="#666" />
+                  <YAxis stroke="#666" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                      border: '1px solid #CDD7D6',
+                      borderRadius: '12px',
+                      padding: '12px'
+                    }}
+                    formatter={(value: number) => [`PKR ${value.toLocaleString()}`, '']}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="income" stroke="#3D8A75" strokeWidth={3} name="Income" />
+                  <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={3} name="Expense" />
+                </LineChart>
+              </ResponsiveContainer>
+            </motion.div>
 
-        {/* Monthly Comparison */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="glass rounded-3xl p-6 shadow-lg"
-        >
-          <h3 className="text-[#102542] mb-4">Monthly Comparison</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#CDD7D6" />
-              <XAxis dataKey="name" stroke="#666" />
-              <YAxis stroke="#666" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                  border: '1px solid #CDD7D6',
-                  borderRadius: '12px',
-                  padding: '12px'
-                }}
-              />
-              <Legend />
-              <Bar dataKey="income" fill="#3D8A75" name="Income" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="expense" fill="#ef4444" name="Expense" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
+            {/* Monthly Comparison */}
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="glass rounded-3xl p-6 shadow-lg"
+            >
+              <h3 className="text-[#102542] mb-4">Monthly Comparison</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={revenueData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#CDD7D6" />
+                  <XAxis dataKey="name" stroke="#666" />
+                  <YAxis stroke="#666" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                      border: '1px solid #CDD7D6',
+                      borderRadius: '12px',
+                      padding: '12px'
+                    }}
+                    formatter={(value: number) => [`PKR ${value.toLocaleString()}`, '']}
+                  />
+                  <Legend />
+                  <Bar dataKey="income" fill="#3D8A75" name="Income" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="expense" fill="#ef4444" name="Expense" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </motion.div>
+          </>
+        ) : (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="glass rounded-3xl p-8 shadow-lg text-center"
+          >
+            <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 mb-1">No analytics data yet</p>
+            <p className="text-gray-400 text-sm">Start making transactions to see your analytics</p>
+          </motion.div>
+        )}
 
         {/* Expense Categories */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="glass rounded-3xl p-6 shadow-lg"
-        >
-          <h3 className="text-[#102542] mb-4">Expense by Category</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie
-                data={categoryData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={90}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {categoryData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                  border: '1px solid #CDD7D6',
-                  borderRadius: '12px',
-                  padding: '12px'
-                }}
-              />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </motion.div>
+        {categoryData.length > 0 && (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="glass rounded-3xl p-6 shadow-lg"
+          >
+            <h3 className="text-[#102542] mb-4">Expense by Category</h3>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={categoryData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {categoryData.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                    border: '1px solid #CDD7D6',
+                    borderRadius: '12px',
+                    padding: '12px'
+                  }}
+                  formatter={(value: number) => [`PKR ${value.toLocaleString()}`, '']}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </motion.div>
+        )}
       </div>
     </div>
   );

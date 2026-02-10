@@ -1,115 +1,55 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
-import { ArrowLeft, Search, ShoppingBag, Star, Heart, Filter } from 'lucide-react';
+import api from '../services/api';
+import { ArrowLeft, Search, ShoppingBag, Star, Heart, Inbox } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function CustomerMarketplace() {
-  const { navigateTo } = useContext(AppContext);
+  const { navigateTo, setSelectedProduct } = useContext(AppContext);
   const { totalItems } = useCart();
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const categories = ['All', 'Electronics', 'Fashion', 'Home & Living', 'Sports', 'Beauty'];
-  const [activeCategory, setActiveCategory] = React.useState('All');
+  const [activeCategory, setActiveCategory] = useState('All');
 
-  const products = [
-    {
-      id: '1',
-      name: 'Samsung Galaxy A54 5G',
-      price: 89999,
-      originalPrice: 99999,
-      discount: 10,
-      rating: 4.5,
-      reviews: 324,
-      category: 'Electronics',
-      image: 'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzbWFydHBob25lJTIwbW9kZXJufGVufDF8fHx8MTc2MzY0MTk3N3ww&ixlib=rb-4.1.0&q=80&w=1080',
-      installment: 7499
-    },
-    {
-      id: '2',
-      name: 'Nike Air Max Shoes',
-      price: 15999,
-      originalPrice: 18999,
-      discount: 15,
-      rating: 4.8,
-      reviews: 189,
-      category: 'Fashion',
-      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuaWtlJTIwc2hvZXN8ZW58MXx8fHwxNzYzNjQxOTc4fDA&ixlib=rb-4.1.0&q=80&w=1080',
-      installment: 1333
-    },
-    {
-      id: '3',
-      name: 'Apple Watch Series 9',
-      price: 124999,
-      originalPrice: 139999,
-      discount: 11,
-      rating: 4.9,
-      reviews: 456,
-      category: 'Electronics',
-      image: 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhcHBsZSUyMHdhdGNofGVufDF8fHx8MTc2MzY0MTk3OHww&ixlib=rb-4.1.0&q=80&w=1080',
-      installment: 10416
-    },
-    {
-      id: '4',
-      name: 'Designer Handbag',
-      price: 8999,
-      originalPrice: 12999,
-      discount: 30,
-      rating: 4.6,
-      reviews: 234,
-      category: 'Fashion',
-      image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoYW5kYmFnJTIwZmFzaGlvbnxlbnwxfHx8fDE3NjM2NDE5Nzh8MA&ixlib=rb-4.1.0&q=80&w=1080',
-      installment: 749
-    },
-    {
-      id: '5',
-      name: 'LED Smart TV 43"',
-      price: 64999,
-      originalPrice: 74999,
-      discount: 13,
-      rating: 4.7,
-      reviews: 567,
-      category: 'Electronics',
-      image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzbWFydCUyMHR2fGVufDF8fHx8MTc2MzY0MTk3OXww&ixlib=rb-4.1.0&q=80&w=1080',
-      installment: 5416
-    },
-    {
-      id: '6',
-      name: 'Yoga Mat Premium',
-      price: 3499,
-      originalPrice: 4999,
-      discount: 30,
-      rating: 4.4,
-      reviews: 123,
-      category: 'Sports',
-      image: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b2dhJTIwbWF0fGVufDF8fHx8MTc2MzY0MTk3OXww&ixlib=rb-4.1.0&q=80&w=1080',
-      installment: 291
-    },
-    {
-      id: '7',
-      name: 'Coffee Maker',
-      price: 12999,
-      originalPrice: 15999,
-      discount: 18,
-      rating: 4.5,
-      reviews: 289,
-      category: 'Home & Living',
-      image: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb2ZmZWUlMjBtYWtlcnxlbnwxfHx8fDE3NjM2NDE5Nzl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-      installment: 1083
-    },
-    {
-      id: '8',
-      name: 'Skincare Set',
-      price: 5999,
-      originalPrice: 8999,
-      discount: 33,
-      rating: 4.8,
-      reviews: 412,
-      category: 'Beauty',
-      image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxza2luY2FyZSUyMHByb2R1Y3RzfGVufDF8fHx8MTc2MzY0MTk4MHww&ixlib=rb-4.1.0&q=80&w=1080',
-      installment: 499
-    }
-  ];
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const response = await api.products.getProducts();
+        if (response.success) {
+          const prodList = response.data?.products || response.data || [];
+          setProducts(prodList.map((p: any) => ({
+            id: p._id,
+            name: p.name,
+            price: p.price || 0,
+            originalPrice: p.compareAtPrice || Math.round((p.price || 0) * 1.15),
+            discount: p.compareAtPrice ? Math.round(((p.compareAtPrice - p.price) / p.compareAtPrice) * 100) : 10,
+            rating: p.rating || 4.5,
+            reviews: p.reviewCount || 0,
+            category: p.category || 'General',
+            image: p.mainImage || p.image || '',
+            installment: p.price ? Math.round(p.price / 12) : 0,
+            raw: p // Keep raw data for ProductDetail
+          })));
+        }
+      } catch (error) {
+        console.error('Failed to load products:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProducts();
+  }, []);
+
+  const filteredProducts = products.filter(p => {
+    const matchesCategory = activeCategory === 'All' || p.category.toLowerCase().includes(activeCategory.toLowerCase());
+    const matchesSearch = !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
@@ -143,6 +83,8 @@ export function CustomerMarketplace() {
           <input
             type="text"
             placeholder="Search products..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
           />
         </div>
@@ -166,63 +108,80 @@ export function CustomerMarketplace() {
           ))}
         </div>
 
-        {/* Promo Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-4 mb-6 text-white"
-        >
-          <p className="text-white text-sm mb-1">🔥 Flash Sale</p>
-          <p className="text-white text-[18px] mb-2">Up to 50% OFF</p>
-          <p className="text-white/90 text-sm">Limited time offer. Shop now!</p>
-        </motion.div>
-
         {/* Products Grid */}
-        <div className="grid grid-cols-2 gap-4 pb-4">
-          {products.map((product, index) => (
-            <motion.div
-              key={product.id}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: index * 0.05 }}
-              onClick={() => navigateTo('product-detail')}
-              className="bg-white rounded-2xl overflow-hidden shadow-md cursor-pointer hover:shadow-xl transition-shadow"
-            >
-              <div className="relative">
-                <div className="h-48 bg-gray-100">
-                  <ImageWithFallback 
-                    src={product.image} 
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin w-8 h-8 border-2 border-[#3D8A75] border-t-transparent rounded-full mx-auto mb-3"></div>
+            <p className="text-gray-500">Loading products...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-12">
+            <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 mb-1">No products found</p>
+            <p className="text-gray-400 text-sm">Try adjusting your search or category filter</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 pb-4">
+            {filteredProducts.map((product, index) => (
+              <motion.div
+                key={product.id}
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: index * 0.05 }}
+                onClick={() => {
+                  if (setSelectedProduct) setSelectedProduct(product.raw);
+                  navigateTo('product-detail');
+                }}
+                className="bg-white rounded-2xl overflow-hidden shadow-md cursor-pointer hover:shadow-xl transition-shadow"
+              >
+                <div className="relative">
+                  <div className="h-48 bg-gray-100">
+                    {product.image ? (
+                      <ImageWithFallback 
+                        src={product.image} 
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ShoppingBag className="w-12 h-12 text-gray-300" />
+                      </div>
+                    )}
+                  </div>
+                  {product.discount > 0 && (
+                    <div className="absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full">
+                      {product.discount}% OFF
+                    </div>
+                  )}
+                  <button className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors">
+                    <Heart className="w-4 h-4 text-gray-600" />
+                  </button>
                 </div>
-                <div className="absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full">
-                  {product.discount}% OFF
+                <div className="p-3">
+                  <p className="text-[#102542] text-sm mb-2 line-clamp-2 h-10">{product.name}</p>
+                  <div className="flex items-center gap-1 mb-2">
+                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                    <span className="text-gray-600 text-xs">{product.rating}</span>
+                    <span className="text-gray-400 text-xs">({product.reviews})</span>
+                  </div>
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <p className="text-[#3D8A75]">PKR {product.price.toLocaleString()}</p>
+                  </div>
+                  {product.originalPrice > product.price && (
+                    <p className="text-gray-400 text-xs line-through mb-2">PKR {product.originalPrice.toLocaleString()}</p>
+                  )}
+                  {product.installment > 0 && (
+                    <div className="bg-[#3D8A75]/10 rounded-lg p-2 text-center">
+                      <p className="text-[#3D8A75] text-xs">
+                        PKR {product.installment}/month
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <button className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors">
-                  <Heart className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
-              <div className="p-3">
-                <p className="text-[#102542] text-sm mb-2 line-clamp-2 h-10">{product.name}</p>
-                <div className="flex items-center gap-1 mb-2">
-                  <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                  <span className="text-gray-600 text-xs">{product.rating}</span>
-                  <span className="text-gray-400 text-xs">({product.reviews})</span>
-                </div>
-                <div className="flex items-baseline gap-2 mb-2">
-                  <p className="text-[#3D8A75]">PKR {product.price.toLocaleString()}</p>
-                </div>
-                <p className="text-gray-400 text-xs line-through mb-2">PKR {product.originalPrice.toLocaleString()}</p>
-                <div className="bg-[#3D8A75]/10 rounded-lg p-2 text-center">
-                  <p className="text-[#3D8A75] text-xs">
-                    PKR {product.installment}/month
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
 
       <style>

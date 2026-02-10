@@ -1,12 +1,37 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useAuth } from '../hooks/useAuth';
+import api from '../services/api';
 import { ArrowLeft, User, Mail, Phone, Building, MapPin, Edit, LogOut } from 'lucide-react';
 
 export function Profile() {
   const { navigateTo } = useContext(AppContext);
   const { user, logout } = useAuth();
+  const [stats, setStats] = useState({ orders: 0, transactions: 0, rating: 0 });
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const [ordersRes, txnRes] = await Promise.all([
+          api.orders.getOrders().catch(() => ({ success: false })),
+          api.users.getTransactions().catch(() => ({ success: false }))
+        ]);
+
+        const orders = ordersRes.success ? (ordersRes.data?.orders || ordersRes.data || []) : [];
+        const transactions = txnRes.success ? (txnRes.data?.transactions || txnRes.data || []) : [];
+
+        setStats({
+          orders: Array.isArray(orders) ? orders.length : 0,
+          transactions: Array.isArray(transactions) ? transactions.length : 0,
+          rating: 0 // No rating system yet
+        });
+      } catch (error) {
+        console.error('Failed to load profile stats:', error);
+      }
+    };
+    loadStats();
+  }, []);
 
   const handleLogout = () => {
     if (confirm('Are you sure you want to logout?')) {
@@ -110,15 +135,15 @@ export function Profile() {
           
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
-              <p className="text-[#3D8A75] mb-1">87</p>
+              <p className="text-[#3D8A75] mb-1">{stats.orders}</p>
               <p className="text-gray-600 text-sm">Orders</p>
             </div>
             <div className="text-center">
-              <p className="text-[#3D8A75] mb-1">234</p>
+              <p className="text-[#3D8A75] mb-1">{stats.transactions}</p>
               <p className="text-gray-600 text-sm">Transactions</p>
             </div>
             <div className="text-center">
-              <p className="text-[#3D8A75] mb-1">5.0</p>
+              <p className="text-[#3D8A75] mb-1">{stats.rating > 0 ? stats.rating.toFixed(1) : '--'}</p>
               <p className="text-gray-600 text-sm">Rating</p>
             </div>
           </div>

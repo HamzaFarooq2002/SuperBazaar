@@ -47,7 +47,7 @@ export function OnboardUserType() {
       icon: Package,
       title: "I'm a Supplier",
       description: 'I want to supply products to businesses and offer SNPL terms',
-      benefits: ['Reach more buyers', 'Manage Invoices'],
+      benefits: ['Reach more buyers', 'Manage Orders'],
       color: 'from-[#102542] to-[#3D8A75]'
     },
     {

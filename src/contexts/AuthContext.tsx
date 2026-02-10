@@ -52,6 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
+      // Clear previous user's cart data before loading new session
+      localStorage.removeItem('cart');
+      window.dispatchEvent(new Event('auth-change'));
+
       const response = await api.auth.login(email, password);
       if (response.success && response.data) {
         setToken(response.data.token);
@@ -65,6 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (userData: any) => {
     setLoading(true);
     try {
+      // Clear any leftover cart data for new account
+      localStorage.removeItem('cart');
+      window.dispatchEvent(new Event('auth-change'));
+
       const response = await api.auth.signup(userData);
       if (response.success && response.data) {
         setToken(response.data.token);
@@ -77,6 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     api.auth.logout();
+    // Clear cart data so next user starts fresh
+    localStorage.removeItem('cart');
+    window.dispatchEvent(new Event('auth-change'));
     setToken(null);
     setUser(null);
   };

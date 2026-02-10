@@ -1,6 +1,7 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import svgPaths from "../imports/svg-pwbb4wldqn";
 import imgLogo from "figma:asset/92375b66cc5f6db228cbba4fabc2bd6032c970de.png";
 
@@ -39,6 +40,39 @@ function StatusBar() {
 export function OnboardSignup() {
   const { navigateTo } = useContext(AppContext);
   const [activeTab, setActiveTab] = useState<'signup' | 'login'>('signup');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { signup } = useAuth();
+
+  const handleSignup = async () => {
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      setError('Please fill in all fields');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      // Generate a unique phone placeholder (will be updated in CNIC step later)
+      const uniquePhone = '+92' + Date.now().toString().slice(-10);
+      await signup({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        phone: uniquePhone,
+        userType: 'merchant',
+        businessName: name.trim() + "'s Business",
+        businessAddress: 'Pakistan'
+      });
+      navigateTo('onboard-usertype');
+    } catch (err: any) {
+      setError(err?.error?.message || 'Signup failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="relative min-h-screen w-full bg-gradient-to-br from-[#e8f0f2] to-[#d4e8e4] overflow-hidden">
@@ -107,26 +141,47 @@ export function OnboardSignup() {
         >
           <div className="text-center mb-6">
             <p className="text-[16px] font-semibold text-[#102542] mb-1">Create an account</p>
-            <p className="text-[14px] text-[#102542] opacity-80">Enter your email to sign up for this app</p>
+            <p className="text-[14px] text-[#102542] opacity-80">Enter your details to sign up for this app</p>
           </div>
+
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded-[8px] text-[13px] mb-2">
+              {error}
+            </div>
+          )}
+
+          <input
+            type="text"
+            placeholder="Full Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full h-[40px] px-4 py-2 rounded-[8px] bg-white/50 backdrop-blur-sm border border-white/60 text-[14px] text-[#102542] placeholder:text-[#102542]/50 focus:outline-none focus:ring-2 focus:ring-[#3D8A75] focus:bg-white/70 transition-all"
+          />
 
           <input
             type="email"
             placeholder="email@domain.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="w-full h-[40px] px-4 py-2 rounded-[8px] bg-white/50 backdrop-blur-sm border border-white/60 text-[14px] text-[#102542] placeholder:text-[#102542]/50 focus:outline-none focus:ring-2 focus:ring-[#3D8A75] focus:bg-white/70 transition-all"
           />
 
           <input
             type="password"
-            placeholder="create a strong password"
+            placeholder="Create a strong password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             className="w-full h-[40px] px-4 py-2 rounded-[8px] bg-white/50 backdrop-blur-sm border border-white/60 text-[14px] text-[#102542] placeholder:text-[#102542]/50 focus:outline-none focus:ring-2 focus:ring-[#3D8A75] focus:bg-white/70 transition-all"
           />
 
           <button
-            onClick={() => navigateTo('onboard-usertype')}
-            className="w-full bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] h-[43px] rounded-[10px] text-white font-medium text-[15px] tracking-[0.6px] hover:shadow-lg hover:scale-[1.02] transition-all"
+            onClick={handleSignup}
+            disabled={loading}
+            className={`w-full bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] h-[43px] rounded-[10px] text-white font-medium text-[15px] tracking-[0.6px] transition-all ${
+              loading ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg hover:scale-[1.02]'
+            }`}
           >
-            Continue
+            {loading ? 'Creating Account...' : 'Continue'}
           </button>
         </motion.div>
 

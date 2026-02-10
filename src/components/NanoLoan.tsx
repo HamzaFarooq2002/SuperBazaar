@@ -1,19 +1,22 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import api from '../services/api';
 import { ArrowLeft, Wallet, TrendingUp, Clock, CheckCircle, Zap } from 'lucide-react';
 
 export function NanoLoan() {
   const { navigateTo } = useContext(AppContext);
   const [loanAmount, setLoanAmount] = useState(25000);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const minLoan = 5000;
   const maxLoan = 50000;
 
   const loanDetails = {
-    tenure: 6, // months
-    interest: 0, // 0% interest
-    cashback: 5, // 5%
+    tenure: 6,
+    interest: 0,
+    cashback: 5,
     monthlyPayment: Math.round(loanAmount / 6),
     cashbackAmount: Math.round(loanAmount * 0.05)
   };
@@ -24,6 +27,28 @@ export function NanoLoan() {
     { icon: TrendingUp, title: '5% Cashback', desc: 'On every loan disbursed' },
     { icon: Clock, title: 'Flexible Tenure', desc: 'Pay back in 6 months' }
   ];
+
+  const handleApply = async () => {
+    if (loanAmount < minLoan || loanAmount > maxLoan) {
+      setError(`Please select an amount between PKR ${minLoan.toLocaleString()} and PKR ${maxLoan.toLocaleString()}`);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      // Use BNPL endpoint for nano loans (same concept, different amount range)
+      const response = await api.credit.applyBNPL(loanAmount);
+      if (response.success) {
+        navigateTo('success');
+      } else {
+        setError(response.error?.message || 'Loan application failed');
+      }
+    } catch (err: any) {
+      setError(err?.error?.message || err?.message || 'Failed to apply. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e8f0f2] to-[#d4e8e4] pb-24">
@@ -43,6 +68,13 @@ export function NanoLoan() {
       </div>
 
       <div className="px-6 mt-6">
+        {/* Error */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
         {/* Loan Amount Selector */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -154,10 +186,15 @@ export function NanoLoan() {
       {/* Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-white/60 px-6 py-4">
         <button
-          onClick={() => navigateTo('success')}
-          className="w-full bg-gradient-to-r from-purple-600 to-purple-800 h-12 rounded-xl text-white font-medium hover:shadow-lg transition-all"
+          onClick={handleApply}
+          disabled={loading}
+          className={`w-full h-12 rounded-xl text-white font-medium hover:shadow-lg transition-all ${
+            loading 
+              ? 'bg-gray-400 cursor-not-allowed' 
+              : 'bg-gradient-to-r from-purple-600 to-purple-800'
+          }`}
         >
-          Apply for Nano Loan
+          {loading ? 'Processing...' : 'Apply for Nano Loan'}
         </button>
       </div>
     </div>

@@ -117,7 +117,7 @@ export function Login() {
           <p className="text-center text-gray-600 mt-6">
             Don't have an account?{' '}
             <button
-              onClick={() => navigateTo('signup')}
+              onClick={() => navigateTo('onboard-signup')}
               className="text-[#3D8A75]"
             >
               Sign Up

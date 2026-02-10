@@ -10,14 +10,21 @@ export function Checkout() {
   const { totalPrice } = useCart();
   const { user } = useAuth();
   const [formData, setFormData] = useState({
-    name: user?.name || 'Ahmed Khan',
-    phone: user?.phone || '+92 300 1234567',
-    address: user?.businessAddress || 'Shop #12, Tariq Road',
+    name: user?.name || '',
+    phone: user?.phone || '',
+    address: user?.businessAddress || '',
     city: 'Karachi',
-    area: 'PECHS'
+    area: ''
   });
 
-  const orderTotal = totalPrice || 24200;
+  const orderTotal = totalPrice || 0;
+
+  // Calculate estimated delivery date dynamically
+  const getEstimatedDelivery = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 5); // 3-5 business days
+    return date.toLocaleDateString('en-PK', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -94,6 +101,7 @@ export function Checkout() {
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
+                  placeholder="Enter your full name"
                   className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-white/60 text-[#102542] focus:outline-none focus:ring-2 focus:ring-[#3D8A75] transition-all"
                 />
               </div>
@@ -107,6 +115,7 @@ export function Checkout() {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
+                  placeholder="Enter your phone number"
                   className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-white/60 text-[#102542] focus:outline-none focus:ring-2 focus:ring-[#3D8A75] transition-all"
                 />
               </div>
@@ -120,6 +129,7 @@ export function Checkout() {
                   value={formData.address}
                   onChange={(e) => handleInputChange('address', e.target.value)}
                   rows={2}
+                  placeholder="Enter delivery address"
                   className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-white/60 text-[#102542] focus:outline-none focus:ring-2 focus:ring-[#3D8A75] transition-all resize-none"
                 />
               </div>
@@ -149,6 +159,7 @@ export function Checkout() {
                   type="text"
                   value={formData.area}
                   onChange={(e) => handleInputChange('area', e.target.value)}
+                  placeholder="Area / Neighborhood"
                   className="w-full px-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-white/60 text-[#102542] focus:outline-none focus:ring-2 focus:ring-[#3D8A75] transition-all"
                 />
               </div>
@@ -175,7 +186,7 @@ export function Checkout() {
           <div className="mt-3 flex items-start gap-2 p-3 bg-blue-50 rounded-xl">
             <MapPin className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
             <p className="text-blue-700 text-xs">
-              Estimated delivery: Wednesday, December 4, 2024
+              Estimated delivery: {getEstimatedDelivery()}
             </p>
           </div>
         </motion.div>

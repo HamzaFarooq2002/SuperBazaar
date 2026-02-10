@@ -1,59 +1,66 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
+import api from '../services/api';
 import { ShoppingBag, CreditCard, Gift, TrendingUp, Package, Wallet, Bell, User, ChevronRight, Star, Zap } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function CustomerDashboard() {
   const { navigateTo } = useContext(AppContext);
   const { totalItems } = useCart();
+  const { user } = useAuth();
+  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Load featured products from API
+        const prodResponse = await api.products.getProducts({ limit: 2 });
+        if (prodResponse.success) {
+          const products = prodResponse.data?.products || prodResponse.data || [];
+          setFeaturedProducts(products.slice(0, 2).map((p: any) => ({
+            id: p._id,
+            name: p.name,
+            price: p.price,
+            originalPrice: p.price ? Math.round(p.price * 1.15) : 0,
+            discount: 15,
+            image: p.mainImage || p.image || '',
+            rating: 4.5,
+            installment: p.price ? Math.round(p.price / 12) : 0
+          })));
+        }
+      } catch (error) {
+        console.error('Failed to load products:', error);
+      }
+
+      try {
+        // Load recent orders from API
+        const orderResponse = await api.orders.getOrders();
+        if (orderResponse.success) {
+          const orders = orderResponse.data?.orders || orderResponse.data || [];
+          setRecentOrders(orders.slice(0, 3).map((o: any) => ({
+            id: o.orderNumber || o._id,
+            status: o.status === 'delivered' ? 'Delivered' : o.status === 'shipped' ? 'In Transit' : 'Processing',
+            date: o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '',
+            amount: o.totalAmount || 0,
+            items: o.items?.length || 0
+          })));
+        }
+      } catch (error) {
+        console.error('Failed to load orders:', error);
+      }
+    };
+    loadData();
+  }, []);
 
   const quickActions = [
     { icon: ShoppingBag, label: 'Shop Now', color: 'from-[#3D8A75] to-[#2d6b5c]', screen: 'customer-marketplace' as const },
     { icon: Package, label: 'My Orders', color: 'from-[#102542] to-[#3D8A75]', screen: 'order-tracking' as const },
     { icon: Wallet, label: 'Nano Loan', color: 'from-purple-600 to-purple-800', screen: 'nano-loan' as const },
     { icon: Gift, label: 'Rewards', color: 'from-orange-500 to-orange-700', screen: 'rewards' as const }
-  ];
-
-  const featuredProducts = [
-    {
-      id: '1',
-      name: 'Samsung Galaxy A54',
-      price: 89999,
-      originalPrice: 99999,
-      discount: 10,
-      image: 'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzbWFydHBob25lJTIwbW9kZXJufGVufDF8fHx8MTc2MzY0MTk3N3ww&ixlib=rb-4.1.0&q=80&w=1080',
-      rating: 4.5,
-      installment: 7499
-    },
-    {
-      id: '2',
-      name: 'Nike Air Max Shoes',
-      price: 15999,
-      originalPrice: 18999,
-      discount: 15,
-      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuaWtlJTIwc2hvZXN8ZW58MXx8fHwxNzYzNjQxOTc4fDA&ixlib=rb-4.1.0&q=80&w=1080',
-      rating: 4.8,
-      installment: 1333
-    }
-  ];
-
-  const recentOrders = [
-    {
-      id: 'ORD-2401',
-      status: 'Delivered',
-      date: 'Nov 24, 2024',
-      amount: 45999,
-      items: 2
-    },
-    {
-      id: 'ORD-2389',
-      status: 'In Transit',
-      date: 'Nov 22, 2024',
-      amount: 12500,
-      items: 1
-    }
   ];
 
   return (
@@ -63,7 +70,7 @@ export function CustomerDashboard() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <p className="text-white/80 text-sm mb-1">Welcome back,</p>
-            <h2 className="text-white">Ahmed Khan</h2>
+            <h2 className="text-white">{user?.name || 'Customer'}</h2>
           </div>
           <div className="flex gap-3">
             <button 
@@ -95,7 +102,7 @@ export function CustomerDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-white/80 text-sm mb-1">Available Balance</p>
-              <p className="text-white text-[28px]">PKR 12,450</p>
+              <p className="text-white text-[28px]">PKR 0</p>
             </div>
             <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
               <Wallet className="w-7 h-7 text-white" />
@@ -104,11 +111,11 @@ export function CustomerDashboard() {
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white/10 rounded-xl p-3">
               <p className="text-white/70 text-xs mb-1">Cashback Earned</p>
-              <p className="text-white">PKR 2,340</p>
+              <p className="text-white">PKR 0</p>
             </div>
             <div className="bg-white/10 rounded-xl p-3">
               <p className="text-white/70 text-xs mb-1">Reward Points</p>
-              <p className="text-white">1,250 pts</p>
+              <p className="text-white">0 pts</p>
             </div>
           </div>
         </motion.div>
@@ -177,43 +184,55 @@ export function CustomerDashboard() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {featuredProducts.map((product, index) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.6 + index * 0.1 }}
-                onClick={() => navigateTo('product-detail')}
-                className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl transition-shadow"
-              >
-                <div className="relative">
-                  <div className="h-40 bg-gray-100">
-                    <ImageWithFallback 
-                      src={product.image} 
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
+            {featuredProducts.length === 0 ? (
+              <div className="col-span-2 text-center py-6">
+                <p className="text-gray-400 text-sm">No products available yet</p>
+              </div>
+            ) : (
+              featuredProducts.map((product: any, index: number) => (
+                <motion.div
+                  key={product.id || index}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.6 + index * 0.1 }}
+                  onClick={() => navigateTo('product-detail')}
+                  className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl transition-shadow"
+                >
+                  <div className="relative">
+                    <div className="h-40 bg-gray-100">
+                      <ImageWithFallback 
+                        src={product.image} 
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    {product.discount > 0 && (
+                      <div className="absolute top-2 right-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full">
+                        {product.discount}% OFF
+                      </div>
+                    )}
                   </div>
-                  <div className="absolute top-2 right-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full">
-                    {product.discount}% OFF
+                  <div className="p-3">
+                    <p className="text-[#102542] text-sm mb-2 line-clamp-2">{product.name}</p>
+                    <div className="flex items-center gap-1 mb-2">
+                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                      <span className="text-gray-600 text-xs">{product.rating}</span>
+                    </div>
+                    <div className="flex items-baseline gap-2 mb-2">
+                      <p className="text-[#3D8A75]">PKR {(product.price || 0).toLocaleString()}</p>
+                      {product.originalPrice > product.price && (
+                        <p className="text-gray-400 text-xs line-through">PKR {product.originalPrice.toLocaleString()}</p>
+                      )}
+                    </div>
+                    {product.installment > 0 && (
+                      <p className="text-[#102542] text-xs opacity-70">
+                        or PKR {product.installment}/month
+                      </p>
+                    )}
                   </div>
-                </div>
-                <div className="p-3">
-                  <p className="text-[#102542] text-sm mb-2 line-clamp-2">{product.name}</p>
-                  <div className="flex items-center gap-1 mb-2">
-                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                    <span className="text-gray-600 text-xs">{product.rating}</span>
-                  </div>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <p className="text-[#3D8A75]">PKR {product.price.toLocaleString()}</p>
-                    <p className="text-gray-400 text-xs line-through">PKR {product.originalPrice.toLocaleString()}</p>
-                  </div>
-                  <p className="text-[#102542] text-xs opacity-70">
-                    or PKR {product.installment}/month
-                  </p>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              ))
+            )}
           </div>
         </motion.div>
 
@@ -236,38 +255,45 @@ export function CustomerDashboard() {
           </div>
 
           <div className="space-y-3">
-            {recentOrders.map((order, index) => (
-              <motion.div
-                key={order.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.9 + index * 0.1 }}
-                onClick={() => navigateTo('order-tracking')}
-                className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-4 cursor-pointer hover:bg-white/70 transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#3D8A75]/20 flex items-center justify-center">
-                      <Package className="w-6 h-6 text-[#3D8A75]" />
+            {recentOrders.length === 0 ? (
+              <div className="text-center py-6">
+                <Package className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-400 text-sm">No orders yet. Start shopping!</p>
+              </div>
+            ) : (
+              recentOrders.map((order: any, index: number) => (
+                <motion.div
+                  key={order.id || index}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.9 + index * 0.1 }}
+                  onClick={() => navigateTo('order-tracking')}
+                  className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-4 cursor-pointer hover:bg-white/70 transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-[#3D8A75]/20 flex items-center justify-center">
+                        <Package className="w-6 h-6 text-[#3D8A75]" />
+                      </div>
+                      <div>
+                        <p className="text-[#102542] mb-1">{order.id}</p>
+                        <p className="text-gray-500 text-xs">{order.items} items • {order.date}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[#102542] mb-1">{order.id}</p>
-                      <p className="text-gray-500 text-xs">{order.items} items • {order.date}</p>
+                    <div className="text-right">
+                      <p className={`text-xs mb-1 px-2 py-1 rounded-full inline-block ${
+                        order.status === 'Delivered' 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {order.status}
+                      </p>
+                      <p className="text-[#102542] text-sm">PKR {(order.amount || 0).toLocaleString()}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`text-xs mb-1 px-2 py-1 rounded-full inline-block ${
-                      order.status === 'Delivered' 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-blue-100 text-blue-700'
-                    }`}>
-                      {order.status}
-                    </p>
-                    <p className="text-[#102542] text-sm">PKR {order.amount.toLocaleString()}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              ))
+            )}
           </div>
         </motion.div>
 

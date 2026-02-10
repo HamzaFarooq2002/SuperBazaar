@@ -21,10 +21,7 @@ import { Dashboard } from './components/Dashboard';
 import { TransactionsList } from './components/TransactionsList';
 import { TransactionDetails } from './components/TransactionDetails';
 import { Analytics } from './components/Analytics';
-import { InvoiceList } from './components/InvoiceList';
-import { InvoiceDetails } from './components/InvoiceDetails';
 import { Expenses } from './components/Expenses';
-import { CreateInvoice } from './components/CreateInvoice';
 import { Payments } from './components/Payments';
 import { PaymentsMain } from './components/PaymentsMain';
 import { SNPLDetails } from './components/SNPLDetails';
@@ -69,10 +66,7 @@ export type Screen =
   | 'transactions'
   | 'transaction-details'
   | 'analytics'
-  | 'invoices'
-  | 'invoice-details'
   | 'expenses'
-  | 'create-invoice'
   | 'payments'
   | 'payments-main'
   | 'snpl-details'
@@ -103,8 +97,6 @@ export interface AppContextType {
   currentScreen: Screen;
   setSelectedTransaction?: (id: string) => void;
   selectedTransaction?: string;
-  setSelectedInvoice?: (id: string) => void;
-  selectedInvoice?: string;
   userType?: 'supplier' | 'business' | 'customer' | null;
   setUserType?: (type: 'supplier' | 'business' | 'customer') => void;
   selectedProduct?: any;
@@ -119,7 +111,6 @@ export const AppContext = React.createContext<AppContextType>({
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
   const [selectedTransaction, setSelectedTransaction] = useState<string>('');
-  const [selectedInvoice, setSelectedInvoice] = useState<string>('');
   const [userType, setUserType] = useState<'supplier' | 'business' | 'customer' | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
@@ -132,8 +123,6 @@ export default function App() {
     currentScreen,
     setSelectedTransaction,
     selectedTransaction,
-    setSelectedInvoice,
-    selectedInvoice,
     userType,
     setUserType,
     selectedProduct,
@@ -184,14 +173,8 @@ export default function App() {
         return <TransactionDetails key="transaction-details" />;
       case 'analytics':
         return <Analytics key="analytics" />;
-      case 'invoices':
-        return <InvoiceList key="invoices" />;
-      case 'invoice-details':
-        return <InvoiceDetails key="invoice-details" />;
       case 'expenses':
         return <Expenses key="expenses" />;
-      case 'create-invoice':
-        return <CreateInvoice key="create-invoice" />;
       case 'payments':
         return <Payments key="payments" />;
       case 'payments-main':

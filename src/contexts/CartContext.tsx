@@ -34,6 +34,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('cart', JSON.stringify(items));
   }, [items]);
 
+  // Reset cart when user logs in, signs up, or logs out
+  // AuthContext dispatches 'auth-change' event on these actions
+  useEffect(() => {
+    const handleAuthChange = () => {
+      setItems([]);
+    };
+    window.addEventListener('auth-change', handleAuthChange);
+    return () => window.removeEventListener('auth-change', handleAuthChange);
+  }, []);
+
   const addItem = (item: CartItem) => {
     setItems(prev => {
       const existing = prev.find(i => i.productId === item.productId);

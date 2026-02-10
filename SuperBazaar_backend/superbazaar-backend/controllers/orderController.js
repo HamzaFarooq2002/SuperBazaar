@@ -238,6 +238,17 @@ const updateOrderStatus = async (req, res) => {
         message: 'Order not found'
       });
     }
+
+    // Verify the user owns this order (either as merchant or supplier)
+    const userId = req.user.id;
+    const isOwner = order.merchant?.toString() === userId;
+    const isSupplier = order.items?.some(item => item.supplier?.toString() === userId);
+    if (!isOwner && !isSupplier) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this order'
+      });
+    }
     
     order.status = status;
     

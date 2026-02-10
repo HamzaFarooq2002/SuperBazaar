@@ -1,6 +1,7 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import api from '../services/api';
 import { ArrowLeft, Building2, User, CheckCircle2, Shield, Lock } from 'lucide-react';
 
 export function CreditScoreShare() {
@@ -8,6 +9,21 @@ export function CreditScoreShare() {
   const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
   const [shareType, setShareType] = useState<'full' | 'summary'>('summary');
   const [consentGiven, setConsentGiven] = useState(false);
+  const [creditScore, setCreditScore] = useState<number>(0);
+
+  useEffect(() => {
+    const loadScore = async () => {
+      try {
+        const response = await api.credit.getCreditScore();
+        if (response.success) {
+          setCreditScore(response.data?.creditScore?.score || 0);
+        }
+      } catch (error) {
+        console.error('Failed to load credit score:', error);
+      }
+    };
+    loadScore();
+  }, []);
 
   const potentialRecipients = [
     {
@@ -50,7 +66,6 @@ export function CreditScoreShare() {
 
   const handleShare = () => {
     if (selectedRecipients.length > 0 && consentGiven) {
-      // Show success and navigate back
       navigateTo('credit-score-result');
     }
   };
@@ -59,10 +74,7 @@ export function CreditScoreShare() {
     <div className="relative min-h-screen w-full bg-gradient-to-br from-[#e8f0f2] to-[#d4e8e4] overflow-hidden pb-24">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 bg-white/30 backdrop-blur-sm border-b border-white/40 h-[60px] flex items-center px-6 z-10">
-        <button
-          onClick={() => navigateTo('credit-score-result')}
-          className="mr-4"
-        >
+        <button onClick={() => navigateTo('credit-score-result')} className="mr-4">
           <ArrowLeft className="w-6 h-6 text-[#102542]" />
         </button>
         <h1 className="text-[18px] text-[#102542]">Share Credit Score</h1>
@@ -70,7 +82,7 @@ export function CreditScoreShare() {
 
       {/* Content */}
       <div className="pt-[80px] px-6">
-        {/* Info Banner */}
+        {/* Info Banner with real score */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -85,19 +97,14 @@ export function CreditScoreShare() {
                 Share with Confidence
               </p>
               <p className="text-[11px] text-[#102542] opacity-70 leading-relaxed">
-                Your credit score can help you unlock better SNPL terms and loan rates. Choose who to share with below.
+                Your credit score ({creditScore > 0 ? creditScore : '...'}/850) can help you unlock better SNPL terms and loan rates. Choose who to share with below.
               </p>
             </div>
           </div>
         </motion.div>
 
         {/* Share Type Selection */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="mb-6"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mb-6">
           <p className="text-[14px] text-[#102542] font-medium mb-3">What to share?</p>
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -113,7 +120,6 @@ export function CreditScoreShare() {
                 <p className="text-[10px] text-[#102542] opacity-70">Score & rating only</p>
               </div>
             </button>
-
             <button
               onClick={() => setShareType('full')}
               className={`p-4 rounded-[12px] border transition-all ${
@@ -131,12 +137,7 @@ export function CreditScoreShare() {
         </motion.div>
 
         {/* Recipients Selection */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mb-6"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="mb-6">
           <p className="text-[14px] text-[#102542] font-medium mb-3">Select Recipients</p>
           <div className="space-y-3">
             {potentialRecipients.map((recipient, index) => (
@@ -162,7 +163,6 @@ export function CreditScoreShare() {
                       <p className="text-[11px] text-[#102542] opacity-60">{recipient.description}</p>
                     </div>
                   </div>
-                  
                   <div className={`w-[24px] h-[24px] rounded-full border-2 flex items-center justify-center transition-all ${
                     selectedRecipients.includes(recipient.id)
                       ? 'border-[#3D8A75] bg-[#3D8A75]'
@@ -179,12 +179,7 @@ export function CreditScoreShare() {
         </motion.div>
 
         {/* Consent Section */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="mb-6"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="mb-6">
           <div className="bg-white/50 backdrop-blur-md border border-white/60 rounded-[12px] p-4">
             <div className="flex items-start gap-3 mb-3">
               <Lock className="w-5 h-5 text-[#3D8A75] flex-shrink-0 mt-0.5" />
@@ -195,19 +190,14 @@ export function CreditScoreShare() {
                 </p>
               </div>
             </div>
-
             <button
               onClick={() => setConsentGiven(!consentGiven)}
               className="flex items-center gap-3 w-full"
             >
               <div className={`w-[24px] h-[24px] rounded-[6px] border-2 flex items-center justify-center transition-all ${
-                consentGiven
-                  ? 'border-[#3D8A75] bg-[#3D8A75]'
-                  : 'border-[#102542]/30 bg-white'
+                consentGiven ? 'border-[#3D8A75] bg-[#3D8A75]' : 'border-[#102542]/30 bg-white'
               }`}>
-                {consentGiven && (
-                  <CheckCircle2 className="w-4 h-4 text-white" />
-                )}
+                {consentGiven && <CheckCircle2 className="w-4 h-4 text-white" />}
               </div>
               <p className="text-[12px] text-[#102542] text-left">
                 I authorize sharing my credit score with selected recipients
@@ -264,16 +254,9 @@ export function CreditScoreShare() {
         </div>
 
         {/* Info Footer */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.1 }}
-          className="mt-6 flex items-center justify-center gap-2"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }} className="mt-6 flex items-center justify-center gap-2">
           <Shield className="w-4 h-4 text-[#3D8A75]" />
-          <p className="text-[11px] text-[#102542] opacity-60">
-            Bank-grade encryption • Revoke anytime
-          </p>
+          <p className="text-[11px] text-[#102542] opacity-60">Bank-grade encryption • Revoke anytime</p>
         </motion.div>
       </div>
 

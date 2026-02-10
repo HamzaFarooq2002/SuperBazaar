@@ -42,43 +42,38 @@ export function Dashboard() {
   };
 
   const loanStats = {
-    creditLimit: dashboardData?.availableCredit ? dashboardData.creditUtilization * 10 : 500000,
-    available: dashboardData?.availableCredit || 350000,
-    used: dashboardData?.creditUtilization ? dashboardData.creditUtilization * 500000 / 100 : 150000,
-    dueDate: '15 Dec 2025',
-    nextPayment: 25000
+    creditLimit: dashboardData?.availableCredit ? dashboardData.creditUtilization * 10 : 0,
+    available: dashboardData?.availableCredit ?? 0,
+    used: dashboardData?.creditUtilization ? dashboardData.creditUtilization * 500000 / 100 : 0,
+    dueDate: dashboardData?.dueDate || '--',
+    nextPayment: dashboardData?.nextPayment ?? 0
   };
 
   const stats = [
     { 
       label: 'Total Revenue', 
-      value: `PKR ${(dashboardData?.totalRevenue || 245280).toLocaleString()}`, 
-      change: '+12.5%', 
+      value: `PKR ${(dashboardData?.totalRevenue ?? 0).toLocaleString()}`, 
+      change: dashboardData?.revenueChange || '--', 
       positive: true, 
       icon: ArrowUpRight 
     },
     { 
       label: 'Expenses', 
-      value: `PKR ${(dashboardData?.totalExpenses || 98940).toLocaleString()}`, 
-      change: '-5.2%', 
+      value: `PKR ${(dashboardData?.totalExpenses ?? 0).toLocaleString()}`, 
+      change: dashboardData?.expenseChange || '--', 
       positive: true, 
       icon: ArrowDownRight 
     },
     { 
       label: 'Net Profit', 
-      value: `PKR ${(dashboardData?.netProfit || 146340).toLocaleString()}`, 
-      change: '+8.3%', 
+      value: `PKR ${(dashboardData?.netProfit ?? 0).toLocaleString()}`, 
+      change: dashboardData?.profitChange || '--', 
       positive: true, 
       icon: Wallet 
     },
   ];
 
-  const recentTransactions = dashboardData?.recentTransactions || [
-    { _id: '1', description: 'Stock Purchase - Metro Wholesale', amount: -45200, transactionDate: new Date(), type: 'expense' },
-    { _id: '2', description: 'Sales Revenue', amount: 78500, transactionDate: new Date(), type: 'income' },
-    { _id: '3', description: 'Inventory - Bismillah Traders', amount: -32800, transactionDate: new Date(), type: 'expense' },
-    { _id: '4', description: 'Customer Payment', amount: 15900, transactionDate: new Date(), type: 'income' },
-  ];
+  const recentTransactions = dashboardData?.recentTransactions ?? [];
 
   const quickActions = [
     { label: 'Payments', icon: CreditCard, action: () => navigateTo('payments-main'), color: 'bg-[#3D8A75]' },
@@ -195,28 +190,39 @@ export function Dashboard() {
             </button>
           </div>
           <div className="space-y-3">
-            {recentTransactions.map((transaction, index) => (
-              <motion.div
-                key={transaction.id}
-                initial={{ x: -20, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.6 + index * 0.1 }}
-                onClick={() => {
-                  navigateTo('transaction-details');
-                }}
-                className="glass rounded-2xl p-4 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-[#102542] mb-1">{transaction.name}</p>
-                    <p className="text-gray-500">{transaction.date}</p>
+            {recentTransactions.length === 0 ? (
+              <div className="glass rounded-2xl p-8 shadow-md text-center">
+                <p className="text-gray-400 mb-1">No transactions yet</p>
+                <p className="text-gray-400 text-sm">Your recent transactions will appear here</p>
+              </div>
+            ) : (
+              recentTransactions.map((transaction: any, index: number) => (
+                <motion.div
+                  key={transaction._id || index}
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.6 + index * 0.1 }}
+                  onClick={() => {
+                    navigateTo('transaction-details');
+                  }}
+                  className="glass rounded-2xl p-4 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-[#102542] mb-1">{transaction.description || transaction.name || 'Transaction'}</p>
+                      <p className="text-gray-500">
+                        {transaction.transactionDate 
+                          ? new Date(transaction.transactionDate).toLocaleDateString() 
+                          : transaction.date || ''}
+                      </p>
+                    </div>
+                    <span className={`${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                      {transaction.type === 'income' ? '+' : '-'}PKR {Math.abs(transaction.amount || 0).toLocaleString()}
+                    </span>
                   </div>
-                  <span className={`${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                    {transaction.amount}
-                  </span>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
       </div>
