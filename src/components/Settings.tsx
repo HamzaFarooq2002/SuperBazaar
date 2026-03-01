@@ -1,6 +1,7 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import { 
   ArrowLeft, 
   Bell, 
@@ -16,6 +17,8 @@ import {
 
 export function Settings() {
   const { navigateTo } = useContext(AppContext);
+  const { user } = useAuth();
+  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [biometric, setBiometric] = useState(true);
@@ -57,7 +60,7 @@ export function Settings() {
       {/* Header */}
       <div className="bg-gradient-to-br from-[#102542] to-[#3D8A75] px-6 pt-12 pb-8">
         <button 
-          onClick={() => navigateTo('dashboard')}
+          onClick={() => navigateTo(homeDashboard)}
           className="mb-6 text-white flex items-center gap-2"
         >
           <ArrowLeft className="w-6 h-6" />

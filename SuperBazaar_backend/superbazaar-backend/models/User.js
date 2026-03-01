@@ -82,6 +82,12 @@ const userSchema = new mongoose.Schema({
     }
   },
   
+  // Wallet
+  walletBalance: {
+    type: Number,
+    default: 0
+  },
+  
   // Gamification
   rewardPoints: {
     type: Number,

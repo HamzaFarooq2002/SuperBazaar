@@ -6,9 +6,10 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User | null>;
   signup: (userData: any) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -49,7 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  useEffect(() => {
+    const handle401 = () => {
+      setToken(null);
+      setUser(null);
+    };
+    window.addEventListener('auth-401', handle401);
+    return () => window.removeEventListener('auth-401', handle401);
+  }, []);
+
+  const login = async (email: string, password: string): Promise<User | null> => {
     setLoading(true);
     try {
       // Clear previous user's cart data before loading new session
@@ -58,11 +68,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const response = await api.auth.login(email, password);
       if (response.success && response.data) {
-        setToken(response.data.token);
-        setUser(response.data.user);
+        const token = response.data.token;
+        const userData = response.data.user;
+        setToken(token);
+        setUser(userData);
+        return userData ?? null;
       }
+      return null;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      const response = await api.auth.getMe();
+      if (response.success) {
+        const userData = (response.data as any)?.user ?? response.data;
+        if (userData) {
+          setUser(userData);
+        }
+      }
+    } catch {
+      // Token may be invalid; leave user as-is
     }
   };
 
@@ -100,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       signup,
       logout,
+      refreshUser,
       isAuthenticated: !!token && !!user
     }}>
       {children}

@@ -1,24 +1,30 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { ArrowLeft, TrendingUp, TrendingDown, Info, Share2, Download, RefreshCcw } from 'lucide-react';
 
 export function CreditScoreResult() {
   const { navigateTo } = useContext(AppContext);
+  const { user } = useAuth();
+  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
   const [showDetails, setShowDetails] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creditData, setCreditData] = useState<any>(null);
+  const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
   const loadCreditScore = async () => {
+    setError('');
     try {
       const response = await api.credit.getCreditScore();
       if (response.success) {
         setCreditData(response.data);
       }
-    } catch (error) {
-      console.error('Failed to load credit score:', error);
+    } catch (err: any) {
+      console.error('Failed to load credit score:', err);
+      setError(err?.error?.message || 'Failed to calculate credit score');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -40,6 +46,24 @@ export function CreditScoreResult() {
         <div className="text-center">
           <div className="animate-spin w-8 h-8 border-2 border-[#3D8A75] border-t-transparent rounded-full mx-auto mb-3"></div>
           <p className="text-gray-500">Calculating your credit score...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !creditData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#e8f0f2] to-[#d4e8e4] flex items-center justify-center px-6">
+        <div className="bg-white/80 backdrop-blur-md border border-white/60 rounded-2xl p-8 text-center max-w-sm w-full">
+          <Info className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h3 className="text-[#102542] text-lg mb-2">Unable to Load Credit Score</h3>
+          <p className="text-gray-500 text-sm mb-6">{error}</p>
+          <button onClick={() => { setLoading(true); loadCreditScore(); }} className="px-6 py-3 bg-[#3D8A75] text-white rounded-xl hover:bg-[#2d6b5c] transition-colors">
+            Try Again
+          </button>
+          <button onClick={() => navigateTo(homeDashboard)} className="block mx-auto mt-3 text-[#3D8A75] text-sm">
+            Go Back
+          </button>
         </div>
       </div>
     );
@@ -109,7 +133,7 @@ export function CreditScoreResult() {
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 bg-white/30 backdrop-blur-sm border-b border-white/40 h-[60px] flex items-center justify-between px-6 z-10">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigateTo('dashboard')}>
+          <button onClick={() => navigateTo(homeDashboard)}>
             <ArrowLeft className="w-6 h-6 text-[#102542]" />
           </button>
           <h1 className="text-[18px] text-[#102542]">Your Credit Score</h1>

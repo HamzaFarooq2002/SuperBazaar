@@ -45,7 +45,7 @@ export function Profile() {
       {/* Header */}
       <div className="bg-gradient-to-br from-[#102542] to-[#3D8A75] px-6 pt-12 pb-24">
         <button 
-          onClick={() => navigateTo('dashboard')}
+          onClick={() => navigateTo(user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard')}
           className="mb-6 text-white flex items-center gap-2"
         >
           <ArrowLeft className="w-6 h-6" />
@@ -64,7 +64,7 @@ export function Profile() {
             <User className="w-12 h-12 text-white" />
           </div>
           <h3 className="text-[#102542] mb-1">{user?.name || 'User'}</h3>
-          <p className="text-gray-600 mb-1">{user?.userType === 'merchant' ? 'Shop Owner' : 'Customer'}</p>
+          <p className="text-gray-600 mb-1">{user?.userType === 'merchant' ? 'Shop Owner' : user?.userType === 'supplier' ? 'Supplier' : 'Customer'}</p>
           <p className="text-gray-500 text-sm mb-4">{user?.businessName || 'Business Name'}</p>
           <button className="px-6 py-2 rounded-xl bg-[#3D8A75] text-white flex items-center gap-2 mx-auto hover:bg-[#2d6a5c] transition-colors">
             <Edit className="w-4 h-4" />

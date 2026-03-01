@@ -1,10 +1,13 @@
 import React, { useContext } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import { CheckCircle } from 'lucide-react';
 
 export function SuccessScreen() {
   const { navigateTo } = useContext(AppContext);
+  const { user } = useAuth();
+  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#102542] to-[#3D8A75] flex items-center justify-center px-6">
@@ -60,7 +63,7 @@ export function SuccessScreen() {
             View Payments
           </button>
           <button
-            onClick={() => navigateTo('dashboard')}
+            onClick={() => navigateTo(homeDashboard)}
             className="w-full max-w-xs py-4 rounded-xl bg-white/20 backdrop-blur-sm text-white transition-all hover:bg-white/30"
           >
             Back to Dashboard

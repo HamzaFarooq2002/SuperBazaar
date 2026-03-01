@@ -11,7 +11,7 @@ export function PaymentMethod() {
   const { navigateTo } = useContext(AppContext);
   const { items, totalPrice, clearCart } = useCart();
   const { user } = useAuth();
-  const { setCurrentOrder } = useOrder();
+  const { setCurrentOrder, shippingFormData, setShippingFormData } = useOrder();
   const [selectedMethod, setSelectedMethod] = useState<'cash' | 'installment' | 'nano-loan' | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -32,17 +32,21 @@ export function PaymentMethod() {
         selectedMethod === 'installment' ? 'bnpl' :
         selectedMethod === 'nano-loan' ? 'snpl' : 'cash';
 
-      // Create order
+      // Build shipping address from Checkout form if available, else fallbacks
+      const street = shippingFormData?.address ?? user?.businessAddress ?? 'Address not specified';
+      const city = shippingFormData?.city ?? 'Karachi';
+
       const orderData = {
         items: items.map(item => ({
-          productId: item.productId,  // Backend expects "productId" not "product"
+          productId: item.productId,
           quantity: item.quantity,
           price: item.price
         })),
         paymentMethod: apiPaymentMethod,
         shippingAddress: {
-          street: user?.businessAddress || 'Shop address',
-          city: 'Karachi',
+          street,
+          city,
+          state: shippingFormData?.area || '',
           postalCode: '75500',
           country: 'Pakistan'
         }
@@ -63,11 +67,9 @@ export function PaymentMethod() {
       const response = await api.orders.createOrder(orderData);
 
       if (response.success) {
-        // Store order for confirmation page
         setCurrentOrder(response.data.order);
-        // Clear cart after successful order
+        setShippingFormData(null);
         clearCart();
-        // Navigate to confirmation
         navigateTo('order-confirmation');
       }
     } catch (err: any) {

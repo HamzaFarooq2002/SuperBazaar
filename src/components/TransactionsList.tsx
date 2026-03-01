@@ -1,11 +1,14 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { ArrowLeft, Search, Filter, TrendingUp, TrendingDown, Inbox } from 'lucide-react';
 
 export function TransactionsList() {
   const { navigateTo, setSelectedTransaction } = useContext(AppContext);
+  const { user } = useAuth();
+  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,16 +29,19 @@ export function TransactionsList() {
     loadTransactions();
   }, []);
 
-  const filteredTransactions = transactions.filter((t: any) => 
-    filter === 'all' ? true : t.type === filter
-  );
+  const filteredTransactions = transactions.filter((t: any) => {
+    if (filter === 'all') return true;
+    if (filter === 'income') return t.type === 'income' || t.type === 'loan_disbursement';
+    if (filter === 'expense') return t.type === 'expense' || t.type === 'loan_repayment';
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
       {/* Header */}
       <div className="bg-gradient-to-br from-[#102542] to-[#3D8A75] px-6 pt-12 pb-8">
         <button 
-          onClick={() => navigateTo('dashboard')}
+          onClick={() => navigateTo(homeDashboard)}
           className="mb-6 text-white flex items-center gap-2"
         >
           <ArrowLeft className="w-6 h-6" />

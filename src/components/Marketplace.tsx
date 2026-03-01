@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
 import { ArrowLeft, Search, ShoppingCart, Star, CreditCard, Package } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import api from '../services/api';
@@ -10,6 +11,8 @@ import type { Product } from '../services/api.types';
 export function Marketplace() {
   const { navigateTo, setSelectedProduct } = useContext(AppContext);
   const { addItem, totalItems } = useCart();
+  const { user } = useAuth();
+  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
 
   const categories = ['All', 'Groceries', 'Beverages', 'Snacks', 'Personal Care', 'Household'];
   const [activeCategory, setActiveCategory] = useState('All');
@@ -57,7 +60,7 @@ export function Marketplace() {
       <div className="bg-gradient-to-br from-[#102542] to-[#3D8A75] px-6 pt-12 pb-8">
         <div className="flex justify-between items-center mb-6">
           <button 
-            onClick={() => navigateTo('dashboard')}
+            onClick={() => navigateTo(homeDashboard)}
             className="text-white flex items-center gap-2"
           >
             <ArrowLeft className="w-6 h-6" />

@@ -1,10 +1,13 @@
 import React, { useContext } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import { ArrowLeft, Shield, TrendingUp, FileText, Clock } from 'lucide-react';
 
 export function CreditScoreInitiate() {
   const { navigateTo } = useContext(AppContext);
+  const { user } = useAuth();
+  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
 
   const features = [
     {
@@ -34,7 +37,7 @@ export function CreditScoreInitiate() {
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 bg-white/30 backdrop-blur-sm border-b border-white/40 h-[60px] flex items-center px-6 z-10">
         <button
-          onClick={() => navigateTo('dashboard')}
+          onClick={() => navigateTo(homeDashboard)}
           className="mr-4"
         >
           <ArrowLeft className="w-6 h-6 text-[#102542]" />

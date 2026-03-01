@@ -3,12 +3,14 @@ import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
+import { useOrder } from '../hooks/useOrder';
 import { ArrowLeft, MapPin, Phone, User, Home, Edit2 } from 'lucide-react';
 
 export function Checkout() {
   const { navigateTo } = useContext(AppContext);
   const { totalPrice } = useCart();
   const { user } = useAuth();
+  const { setShippingFormData } = useOrder();
   const [formData, setFormData] = useState({
     name: user?.name || '',
     phone: user?.phone || '',
@@ -215,7 +217,16 @@ export function Checkout() {
             <p className="text-[#102542] text-[20px]">PKR {orderTotal.toLocaleString()}</p>
           </div>
           <button
-            onClick={() => navigateTo('payment-method')}
+            onClick={() => {
+              setShippingFormData({
+                name: formData.name,
+                phone: formData.phone,
+                address: formData.address,
+                city: formData.city,
+                area: formData.area
+              });
+              navigateTo('payment-method');
+            }}
             className="flex-1 bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] h-12 rounded-xl text-white font-medium hover:shadow-lg transition-all"
           >
             Continue to Payment

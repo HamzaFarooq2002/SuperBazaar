@@ -1,11 +1,14 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { X, ShoppingBag, Home, Receipt, Wallet, User } from 'lucide-react';
 
 export function BNPLApplication() {
   const { navigateTo } = useContext(AppContext);
+  const { user } = useAuth();
+  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
   const [amount, setAmount] = useState('4000');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,7 +22,7 @@ export function BNPLApplication() {
     setLoading(true);
     setError('');
     try {
-      const response = await api.credit.applyBNPL(purchaseAmount);
+      const response = await api.credit.applyBNPL({ purchaseAmount });
       if (response.success) {
         navigateTo('bnpl-approved');
       } else {
@@ -155,7 +158,7 @@ export function BNPLApplication() {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3">
         <div className="flex items-center justify-around max-w-md mx-auto">
-          <button onClick={() => navigateTo('dashboard')} className="flex flex-col items-center gap-1">
+          <button onClick={() => navigateTo(homeDashboard)} className="flex flex-col items-center gap-1">
             <Home className="w-6 h-6 text-gray-400" />
             <span className="text-[11px] text-gray-400">Home</span>
           </button>

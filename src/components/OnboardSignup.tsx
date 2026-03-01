@@ -62,7 +62,7 @@ export function OnboardSignup() {
         email: email.trim(),
         password,
         phone: uniquePhone,
-        userType: 'merchant',
+        userType: 'customer',
         businessName: name.trim() + "'s Business",
         businessAddress: 'Pakistan'
       });

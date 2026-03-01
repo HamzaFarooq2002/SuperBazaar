@@ -1,11 +1,14 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { ArrowLeft, FileText, TrendingUp, CreditCard, Home, Receipt, Wallet, User, Inbox } from 'lucide-react';
 
 export function PaymentsMain() {
   const { navigateTo } = useContext(AppContext);
+  const { user: authUser } = useAuth();
+  const homeDashboard = authUser?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
   const [activeTab, setActiveTab] = useState<'snpl' | 'bnpl'>('snpl');
   const [creditLines, setCreditLines] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +39,7 @@ export function PaymentsMain() {
       {/* Header */}
       <div className="bg-gradient-to-br from-[#102542] to-[#3D8A75] px-6 pt-12 pb-8">
         <button 
-          onClick={() => navigateTo('dashboard')}
+          onClick={() => navigateTo(homeDashboard)}
           className="mb-6 text-white flex items-center gap-2"
         >
           <ArrowLeft className="w-6 h-6" />
@@ -223,7 +226,7 @@ export function PaymentsMain() {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3">
         <div className="flex items-center justify-around max-w-md mx-auto">
-          <button onClick={() => navigateTo('dashboard')} className="flex flex-col items-center gap-1">
+          <button onClick={() => navigateTo(homeDashboard)} className="flex flex-col items-center gap-1">
             <Home className="w-6 h-6 text-gray-400" />
             <span className="text-[11px] text-gray-400">Home</span>
           </button>

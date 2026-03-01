@@ -1,11 +1,14 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { ArrowLeft, Plus, Coffee, Wifi, Car, Home, ShoppingCart, Zap, Inbox } from 'lucide-react';
 
 export function Expenses() {
   const { navigateTo } = useContext(AppContext);
+  const { user } = useAuth();
+  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
   const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,7 +19,7 @@ export function Expenses() {
         if (response.success) {
           const allTxns = response.data?.transactions || response.data || [];
           // Filter only expense-type transactions
-          const expenseTxns = allTxns.filter((t: any) => t.type === 'expense');
+          const expenseTxns = allTxns.filter((t: any) => t.type === 'expense' || t.type === 'loan_repayment');
           setExpenses(expenseTxns);
         }
       } catch (error) {
@@ -43,6 +46,8 @@ export function Expenses() {
     'internet': Wifi,
     'rent': Home,
     'meals': Coffee,
+    'loan': Zap,
+    'repayment': Zap,
     'other': ShoppingCart
   };
 
@@ -54,6 +59,8 @@ export function Expenses() {
     'internet': 'bg-green-100 text-green-600',
     'rent': 'bg-red-100 text-red-600',
     'meals': 'bg-orange-100 text-orange-600',
+    'loan': 'bg-indigo-100 text-indigo-600',
+    'repayment': 'bg-indigo-100 text-indigo-600',
     'other': 'bg-gray-100 text-gray-600'
   };
 
@@ -72,7 +79,7 @@ export function Expenses() {
       <div className="bg-gradient-to-br from-[#102542] to-[#3D8A75] px-6 pt-12 pb-24">
         <div className="flex justify-between items-center mb-6">
           <button 
-            onClick={() => navigateTo('dashboard')}
+            onClick={() => navigateTo(homeDashboard)}
             className="text-white flex items-center gap-2"
           >
             <ArrowLeft className="w-6 h-6" />

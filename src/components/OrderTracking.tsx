@@ -1,12 +1,15 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import type { Order } from '../services/api.types';
 import { ArrowLeft, Package, Truck, CheckCircle, Clock, CreditCard, Loader2 } from 'lucide-react';
 
 export function OrderTracking() {
   const { navigateTo } = useContext(AppContext);
+  const { user } = useAuth();
+  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -21,7 +24,7 @@ export function OrderTracking() {
     try {
       const response = await api.orders.getOrders();
       if (response.success) {
-        setOrders(response.data.orders || []);
+        setOrders(response.data?.orders || response.data || []);
       }
     } catch (err: any) {
       setError(err?.error?.message || 'Failed to load orders');
@@ -66,7 +69,7 @@ export function OrderTracking() {
       {/* Header */}
       <div className="bg-gradient-to-br from-[#102542] to-[#3D8A75] px-6 pt-12 pb-24">
         <button 
-          onClick={() => navigateTo('dashboard')}
+          onClick={() => navigateTo(homeDashboard)}
           className="mb-6 text-white flex items-center gap-2"
         >
           <ArrowLeft className="w-6 h-6" />
@@ -104,7 +107,7 @@ export function OrderTracking() {
             <p className="text-[#102542] mb-2">No orders yet</p>
             <p className="text-gray-600 text-sm mb-6">Start shopping to see your orders here</p>
             <button
-              onClick={() => navigateTo('marketplace')}
+              onClick={() => navigateTo(user?.userType === 'customer' ? 'customer-marketplace' : 'marketplace')}
               className="px-6 py-3 bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] text-white rounded-xl hover:shadow-lg transition-all"
             >
               Browse Marketplace
@@ -129,13 +132,13 @@ export function OrderTracking() {
                 <p className="text-[#102542] mb-1">{formatOrderItems(order)}</p>
                 <p className="text-gray-500 text-sm mb-2">Order #{order.orderNumber}</p>
                 <span className={`px-3 py-1 rounded-full text-xs ${
-                  order.orderStatus === 'delivered' 
+                  (order.status || order.orderStatus) === 'delivered' 
                     ? 'bg-green-100 text-green-600' 
-                    : order.orderStatus === 'cancelled'
+                    : (order.status || order.orderStatus) === 'cancelled'
                     ? 'bg-red-100 text-red-600'
                     : 'bg-yellow-100 text-yellow-600'
                 }`}>
-                  {getDisplayStatus(order.orderStatus)}
+                  {getDisplayStatus(order.status || order.orderStatus || 'pending')}
                 </span>
               </div>
             </div>
@@ -147,7 +150,7 @@ export function OrderTracking() {
               </div>
               <div>
                 <p className="text-gray-500 text-sm mb-1">Total Amount</p>
-                <p className="text-[#102542]">PKR {order.totalAmount.toLocaleString()}</p>
+                <p className="text-[#102542]">PKR {(order.totalAmount ?? 0).toLocaleString()}</p>
               </div>
             </div>
 
@@ -179,10 +182,10 @@ export function OrderTracking() {
           className="mt-6"
         >
           <button 
-            onClick={() => navigateTo('marketplace')}
+            onClick={() => navigateTo(user?.userType === 'customer' ? 'customer-marketplace' : 'marketplace')}
             className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-all"
           >
-            Order More Stock
+            {user?.userType === 'customer' ? 'Shop More' : 'Order More Stock'}
           </button>
         </motion.div>
       </div>

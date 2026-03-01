@@ -11,6 +11,7 @@ export function CustomerMarketplace() {
   const { totalItems } = useCart();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   const categories = ['All', 'Electronics', 'Fashion', 'Home & Living', 'Sports', 'Beauty'];
@@ -22,22 +23,27 @@ export function CustomerMarketplace() {
         const response = await api.products.getProducts();
         if (response.success) {
           const prodList = response.data?.products || response.data || [];
-          setProducts(prodList.map((p: any) => ({
-            id: p._id,
-            name: p.name,
-            price: p.price || 0,
-            originalPrice: p.compareAtPrice || Math.round((p.price || 0) * 1.15),
-            discount: p.compareAtPrice ? Math.round(((p.compareAtPrice - p.price) / p.compareAtPrice) * 100) : 10,
-            rating: p.rating || 4.5,
-            reviews: p.reviewCount || 0,
-            category: p.category || 'General',
-            image: p.mainImage || p.image || '',
-            installment: p.price ? Math.round(p.price / 12) : 0,
-            raw: p // Keep raw data for ProductDetail
-          })));
+          setProducts(prodList.map((p: any) => {
+            const price = Number(p.price) || 0;
+            const compareAt = Number(p.compareAtPrice) || 0;
+            return {
+              id: p._id || '',
+              name: String(p.name || 'Unnamed Product'),
+              price,
+              originalPrice: compareAt || Math.round(price * 1.15),
+              discount: compareAt ? Math.round(((compareAt - price) / compareAt) * 100) : 10,
+              rating: Number(p.rating) || 4.5,
+              reviews: Number(p.reviewCount) || 0,
+              category: String(p.category || 'General'),
+              image: p.mainImage || p.image || '',
+              installment: price ? Math.round(price / 12) : 0,
+              raw: p
+            };
+          }));
         }
-      } catch (error) {
-        console.error('Failed to load products:', error);
+      } catch (err: any) {
+        console.error('Failed to load products:', err);
+        setError(err?.error?.message || 'Failed to load products');
       } finally {
         setLoading(false);
       }
@@ -46,8 +52,10 @@ export function CustomerMarketplace() {
   }, []);
 
   const filteredProducts = products.filter(p => {
-    const matchesCategory = activeCategory === 'All' || p.category.toLowerCase().includes(activeCategory.toLowerCase());
-    const matchesSearch = !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const cat = String(p.category || '').toLowerCase();
+    const name = String(p.name || '').toLowerCase();
+    const matchesCategory = activeCategory === 'All' || cat.includes(activeCategory.toLowerCase());
+    const matchesSearch = !searchQuery || name.includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -109,7 +117,13 @@ export function CustomerMarketplace() {
         </div>
 
         {/* Products Grid */}
-        {loading ? (
+        {error ? (
+          <div className="text-center py-12">
+            <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-red-500 mb-2">{error}</p>
+            <button onClick={() => { setError(''); setLoading(true); }} className="text-[#3D8A75] text-sm underline">Try again</button>
+          </div>
+        ) : loading ? (
           <div className="text-center py-12">
             <div className="animate-spin w-8 h-8 border-2 border-[#3D8A75] border-t-transparent rounded-full mx-auto mb-3"></div>
             <p className="text-gray-500">Loading products...</p>
@@ -165,10 +179,10 @@ export function CustomerMarketplace() {
                     <span className="text-gray-400 text-xs">({product.reviews})</span>
                   </div>
                   <div className="flex items-baseline gap-2 mb-2">
-                    <p className="text-[#3D8A75]">PKR {product.price.toLocaleString()}</p>
+                    <p className="text-[#3D8A75]">PKR {(product.price ?? 0).toLocaleString()}</p>
                   </div>
                   {product.originalPrice > product.price && (
-                    <p className="text-gray-400 text-xs line-through mb-2">PKR {product.originalPrice.toLocaleString()}</p>
+                    <p className="text-gray-400 text-xs line-through mb-2">PKR {(product.originalPrice ?? 0).toLocaleString()}</p>
                   )}
                   {product.installment > 0 && (
                     <div className="bg-[#3D8A75]/10 rounded-lg p-2 text-center">

@@ -32,7 +32,7 @@ export function SignUp() {
         businessName: formData.business,
         businessAddress: 'Karachi'
       });
-      navigateTo('dashboard');
+      navigateTo('dashboard'); // SignUp standalone always creates merchant
     } catch (err: any) {
       setError(err?.error?.message || 'Signup failed. Please try again.');
     } finally {

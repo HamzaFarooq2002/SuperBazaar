@@ -222,10 +222,37 @@ const applyBNPL = async (req, res) => {
     
     await bnpl.save();
     
+    // Create disbursement transaction so the loan is recorded
+    try {
+      await Transaction.create({
+        user: req.user.id,
+        type: 'loan_disbursement',
+        category: 'loan',
+        amount: purchaseAmount,
+        description: 'Nano loan / BNPL disbursement',
+        relatedCreditLine: bnpl._id,
+        paymentMethod: 'bnpl',
+        status: 'completed'
+      });
+    } catch (txnErr) {
+      console.error('BNPL disbursement transaction failed (non-blocking):', txnErr.message);
+    }
+
+    // Credit the customer's wallet
+    try {
+      const user = await User.findById(req.user.id);
+      if (user) {
+        user.walletBalance = (user.walletBalance || 0) + purchaseAmount;
+        await user.save();
+      }
+    } catch (walletErr) {
+      console.error('Wallet credit failed (non-blocking):', walletErr.message);
+    }
+    
     res.status(201).json({
       success: true,
-      message: 'BNPL approved!',
-      data: { creditLine: bnpl }
+      message: 'BNPL approved! Funds disbursed to your wallet.',
+      data: { creditLine: bnpl, disbursedAmount: purchaseAmount }
     });
   } catch (error) {
     console.error('Apply BNPL error:', error);

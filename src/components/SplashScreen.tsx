@@ -1,25 +1,34 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import { ShoppingCart } from 'lucide-react';
 
 export function SplashScreen() {
   const { navigateTo } = useContext(AppContext);
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [showTap, setShowTap] = useState(false);
 
   useEffect(() => {
-    // Show "Tap to continue" after 2 seconds
     const tapTimer = setTimeout(() => {
-      setShowTap(true);
+      if (!authLoading && isAuthenticated && user) {
+        navigateTo(user.userType === 'customer' ? 'customer-dashboard' : 'dashboard');
+      } else {
+        setShowTap(true);
+      }
     }, 2000);
 
     return () => {
       clearTimeout(tapTimer);
     };
-  }, [navigateTo]);
+  }, [authLoading, isAuthenticated, user]);
 
   const handleTap = () => {
-    navigateTo('onboard-intro');
+    if (!authLoading && isAuthenticated && user) {
+      navigateTo(user.userType === 'customer' ? 'customer-dashboard' : 'dashboard');
+    } else {
+      navigateTo('onboard-intro');
+    }
   };
 
   return (

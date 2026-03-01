@@ -1,11 +1,14 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { ArrowLeft, Check, Home, Receipt, Wallet, User, Inbox } from 'lucide-react';
 
 export function SNPLDetails() {
   const { navigateTo } = useContext(AppContext);
+  const { user } = useAuth();
+  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
   const [autoRepayment, setAutoRepayment] = React.useState(false);
   const [creditLine, setCreditLine] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -52,7 +55,7 @@ export function SNPLDetails() {
           <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 mb-1">No active SNPL loan</p>
           <p className="text-gray-400 text-sm mb-4">Purchase stock from the marketplace to apply for SNPL</p>
-          <button onClick={() => navigateTo('marketplace')} className="px-6 py-3 bg-[#3D8A75] text-white rounded-xl">
+          <button onClick={() => navigateTo(user?.userType === 'customer' ? 'customer-marketplace' : 'marketplace')} className="px-6 py-3 bg-[#3D8A75] text-white rounded-xl">
             Go to Marketplace
           </button>
         </div>
@@ -164,7 +167,7 @@ export function SNPLDetails() {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3">
         <div className="flex items-center justify-around max-w-md mx-auto">
-          <button onClick={() => navigateTo('dashboard')} className="flex flex-col items-center gap-1">
+          <button onClick={() => navigateTo(homeDashboard)} className="flex flex-col items-center gap-1">
             <Home className="w-6 h-6 text-gray-400" />
             <span className="text-[11px] text-gray-400">Home</span>
           </button>

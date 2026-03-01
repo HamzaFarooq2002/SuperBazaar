@@ -59,14 +59,11 @@ axiosInstance.interceptors.response.use(
       console.error('API Error:', error.response?.data || error.message);
     }
 
-    // Handle 401 Unauthorized - Auto logout
+    // Handle 401 Unauthorized - clear auth and notify app (uses in-app screen state, not routes)
     if (error.response?.status === 401) {
       TokenService.removeToken();
       TokenService.removeUser();
-      // Optional: Redirect to login page
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+      window.dispatchEvent(new Event('auth-401'));
     }
 
     // Format error response
@@ -471,6 +468,24 @@ const usersAPI = {
   updateProfile: async (profileData) => {
     try {
       const response = await axiosInstance.put('/users/profile', profileData);
+      return handleResponse(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getWallet: async () => {
+    try {
+      const response = await axiosInstance.get('/users/wallet');
+      return handleResponse(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getRewards: async () => {
+    try {
+      const response = await axiosInstance.get('/users/rewards');
       return handleResponse(response);
     } catch (error) {
       throw error;

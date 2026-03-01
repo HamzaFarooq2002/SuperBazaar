@@ -20,8 +20,8 @@ export function Login() {
     setLoading(true);
 
     try {
-      await login(formData.email, formData.password);
-      navigateTo('dashboard'); // Success!
+      const user = await login(formData.email, formData.password);
+      navigateTo(user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard');
     } catch (err: any) {
       setError(err?.error?.message || 'Login failed. Please try again.');
     } finally {
@@ -59,8 +59,8 @@ export function Login() {
           </div>
 
           <h2 className="text-[#102542] mb-1 text-center">Welcome to Super Bazaar</h2>
-          <p className="text-[#3D8A75] text-center mb-1">Smart Retail Starts Here</p>
-          <p className="text-gray-600 mb-8 text-center">Login to access Stocknow Paylater</p>
+          <p className="text-[#3D8A75] text-center mb-1">Smart Shopping Starts Here</p>
+          <p className="text-gray-600 mb-8 text-center">Login</p>
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

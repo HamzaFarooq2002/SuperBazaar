@@ -1,13 +1,17 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { X, CheckCircle, Calendar, Shield, Home, Receipt, Wallet, User } from 'lucide-react';
 
 export function BNPLApproved() {
   const { navigateTo } = useContext(AppContext);
+  const { user } = useAuth();
+  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
   const [latestBNPL, setLatestBNPL] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadLatestBNPL = async () => {
@@ -17,11 +21,13 @@ export function BNPLApproved() {
           const lines = response.data?.creditLines || response.data || [];
           const bnplLines = lines.filter((cl: any) => cl.type === 'bnpl');
           if (bnplLines.length > 0) {
-            setLatestBNPL(bnplLines[0]); // Most recent (sorted desc by createdAt)
+            setLatestBNPL(bnplLines[0]);
           }
         }
       } catch (error) {
         console.error('Failed to load BNPL data:', error);
+      } finally {
+        setLoading(false);
       }
     };
     loadLatestBNPL();
@@ -29,6 +35,17 @@ export function BNPLApproved() {
 
   const loanAmount = latestBNPL?.principalAmount || 0;
   const installmentCount = latestBNPL?.installments?.length || 4;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-2 border-[#3D8A75] border-t-transparent rounded-full mx-auto mb-3"></div>
+          <p className="text-gray-500">Loading approval details...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white pb-20">
@@ -167,7 +184,7 @@ export function BNPLApproved() {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3">
         <div className="flex items-center justify-around max-w-md mx-auto">
-          <button onClick={() => navigateTo('dashboard')} className="flex flex-col items-center gap-1">
+          <button onClick={() => navigateTo(homeDashboard)} className="flex flex-col items-center gap-1">
             <Home className="w-6 h-6 text-gray-400" />
             <span className="text-[11px] text-gray-400">Home</span>
           </button>

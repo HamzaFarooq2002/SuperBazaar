@@ -2,12 +2,15 @@ import React, { useContext } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
 import { ArrowLeft, Plus, Minus, Trash2, ShoppingBag, Tag } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function ShoppingCart() {
   const { navigateTo } = useContext(AppContext);
   const { items, updateQuantity, removeItem, totalPrice } = useCart();
+  const { user } = useAuth();
+  const homeMarketplace = user?.userType === 'customer' ? 'customer-marketplace' : 'marketplace';
 
   const handleUpdateQuantity = (productId: string, delta: number) => {
     const item = items.find(i => i.productId === productId);
@@ -36,7 +39,7 @@ export function ShoppingCart() {
       <div className="bg-white/30 backdrop-blur-md border-b border-white/40 px-6 pt-12 pb-4 sticky top-0 z-10">
         <div className="flex justify-between items-center">
           <button 
-            onClick={() => navigateTo('marketplace')}
+            onClick={() => navigateTo(homeMarketplace)}
             className="text-[#102542] flex items-center gap-2"
           >
             <ArrowLeft className="w-6 h-6" />
@@ -58,7 +61,7 @@ export function ShoppingCart() {
             <p className="text-[#102542] mb-2">Your cart is empty</p>
             <p className="text-gray-500 text-sm mb-6">Add products to get started</p>
             <button
-              onClick={() => navigateTo('marketplace')}
+              onClick={() => navigateTo(homeMarketplace)}
               className="px-6 py-3 bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] text-white rounded-xl hover:shadow-lg transition-all"
             >
               Browse Marketplace

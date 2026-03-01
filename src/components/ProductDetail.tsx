@@ -2,12 +2,15 @@ import React, { useContext, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
 import { ArrowLeft, Star, Plus, Minus, ShoppingCart, Package, Truck, Shield, CreditCard, Check } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function ProductDetail() {
   const { navigateTo, selectedProduct } = useContext(AppContext);
   const { addItem, totalItems } = useCart();
+  const { user } = useAuth();
+  const homeMarketplace = user?.userType === 'customer' ? 'customer-marketplace' : 'marketplace';
   const [quantity, setQuantity] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -73,7 +76,7 @@ export function ProductDetail() {
       <div className="bg-white/30 backdrop-blur-md border-b border-white/40 px-6 pt-12 pb-4 sticky top-0 z-10">
         <div className="flex justify-between items-center">
           <button 
-            onClick={() => navigateTo('marketplace')}
+            onClick={() => navigateTo(homeMarketplace)}
             className="text-[#102542] flex items-center gap-2"
           >
             <ArrowLeft className="w-6 h-6" />

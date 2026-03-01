@@ -1,6 +1,8 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
+import api from '../services/api';
 import { ArrowLeft, Package, Store, User } from 'lucide-react';
 import svgPaths from "../imports/svg-2pthmw0ane";
 import imgRectangle4 from "figma:asset/a9f37960141116dc132cdcd04169283a98871cc6.png";
@@ -39,7 +41,10 @@ function StatusBar() {
 
 export function OnboardUserType() {
   const { navigateTo, setUserType } = useContext(AppContext);
+  const { refreshUser } = useAuth();
   const [selectedType, setSelectedType] = useState<'supplier' | 'business' | 'customer' | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const userTypes = [
     {
@@ -162,25 +167,38 @@ export function OnboardUserType() {
         </motion.div>
 
         {/* Continue Button */}
+        {error && (
+          <p className="text-red-600 text-sm mb-2">{error}</p>
+        )}
         <motion.button
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          onClick={() => {
-            if (selectedType) {
+          onClick={async () => {
+            if (!selectedType) return;
+            setError('');
+            setLoading(true);
+            try {
+              // Map UI type to backend: 'business' -> 'merchant'
+              const apiUserType = selectedType === 'business' ? 'merchant' : selectedType;
+              await api.users.updateProfile({ userType: apiUserType });
+              await refreshUser();
               setUserType?.(selectedType);
-              // All users go through CNIC verification
               navigateTo('onboard-cnic');
+            } catch (err: any) {
+              setError(err?.error?.message || 'Failed to update profile. Please try again.');
+            } finally {
+              setLoading(false);
             }
           }}
-          disabled={!selectedType}
+          disabled={!selectedType || loading}
           className={`w-full h-[43px] rounded-[10px] text-white font-medium text-[15px] tracking-[0.6px] transition-all ${
-            selectedType 
+            selectedType && !loading
               ? 'bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] hover:shadow-lg hover:scale-[1.02]' 
               : 'bg-white/30 backdrop-blur-sm text-[#102542]/40 cursor-not-allowed'
           }`}
         >
-          Continue
+          {loading ? 'Updating...' : 'Continue'}
         </motion.button>
       </div>
 

@@ -9,6 +9,8 @@ export function NanoLoan() {
   const [loanAmount, setLoanAmount] = useState(25000);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [approved, setApproved] = useState(false);
+  const [disbursedAmount, setDisbursedAmount] = useState(0);
 
   const minLoan = 5000;
   const maxLoan = 50000;
@@ -37,9 +39,10 @@ export function NanoLoan() {
     setError('');
     try {
       // Use BNPL endpoint for nano loans (same concept, different amount range)
-      const response = await api.credit.applyBNPL(loanAmount);
+      const response = await api.credit.applyBNPL({ purchaseAmount: loanAmount });
       if (response.success) {
-        navigateTo('success');
+        setDisbursedAmount(response.data?.disbursedAmount || loanAmount);
+        setApproved(true);
       } else {
         setError(response.error?.message || 'Loan application failed');
       }
@@ -49,6 +52,43 @@ export function NanoLoan() {
       setLoading(false);
     }
   };
+
+  if (approved) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#e8f0f2] to-[#d4e8e4] flex items-center justify-center px-6">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white/80 backdrop-blur-md border border-white/60 rounded-3xl p-8 text-center max-w-sm w-full"
+        >
+          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-10 h-10 text-green-600" />
+          </div>
+          <h2 className="text-[#102542] text-[22px] mb-2">Loan Approved!</h2>
+          <p className="text-gray-600 mb-6">Funds have been disbursed to your SuperBazaar wallet.</p>
+          <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-5 text-white mb-6">
+            <p className="text-white/80 text-sm mb-1">Disbursed Amount</p>
+            <p className="text-white text-[32px]">PKR {disbursedAmount.toLocaleString()}</p>
+            <p className="text-white/60 text-xs mt-2">Added to your wallet balance</p>
+          </div>
+          <div className="space-y-3">
+            <button
+              onClick={() => navigateTo('customer-dashboard')}
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] text-white font-medium hover:shadow-lg transition-all"
+            >
+              Go to Dashboard
+            </button>
+            <button
+              onClick={() => navigateTo('customer-marketplace')}
+              className="w-full h-12 rounded-xl bg-white border border-gray-200 text-[#102542] font-medium hover:bg-gray-50 transition-all"
+            >
+              Shop Now
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e8f0f2] to-[#d4e8e4] pb-24">

@@ -8,11 +8,14 @@ import { ShoppingBag, CreditCard, Gift, TrendingUp, Package, Wallet, Bell, User,
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function CustomerDashboard() {
-  const { navigateTo } = useContext(AppContext);
+  const { navigateTo, setSelectedProduct } = useContext(AppContext);
   const { totalItems } = useCart();
   const { user } = useAuth();
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [rewardPoints, setRewardPoints] = useState(0);
+  const [cashbackEarned, setCashbackEarned] = useState(0);
 
   useEffect(() => {
     const loadData = async () => {
@@ -29,7 +32,8 @@ export function CustomerDashboard() {
             discount: 15,
             image: p.mainImage || p.image || '',
             rating: 4.5,
-            installment: p.price ? Math.round(p.price / 12) : 0
+            installment: p.price ? Math.round(p.price / 12) : 0,
+            raw: p
           })));
         }
       } catch (error) {
@@ -37,7 +41,25 @@ export function CustomerDashboard() {
       }
 
       try {
-        // Load recent orders from API
+        const walletRes = await api.users.getWallet();
+        if (walletRes.success) {
+          setWalletBalance(walletRes.data?.walletBalance ?? 0);
+        }
+      } catch (err) {
+        console.error('Failed to load wallet:', err);
+      }
+
+      try {
+        const rewardsRes = await api.users.getRewards();
+        if (rewardsRes.success) {
+          setRewardPoints(rewardsRes.data?.totalPoints ?? 0);
+          setCashbackEarned(rewardsRes.data?.cashbackEarned ?? 0);
+        }
+      } catch (err) {
+        console.error('Failed to load rewards:', err);
+      }
+
+      try {
         const orderResponse = await api.orders.getOrders();
         if (orderResponse.success) {
           const orders = orderResponse.data?.orders || orderResponse.data || [];
@@ -102,7 +124,7 @@ export function CustomerDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-white/80 text-sm mb-1">Available Balance</p>
-              <p className="text-white text-[28px]">PKR 0</p>
+              <p className="text-white text-[28px]">PKR {walletBalance.toLocaleString()}</p>
             </div>
             <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
               <Wallet className="w-7 h-7 text-white" />
@@ -111,11 +133,11 @@ export function CustomerDashboard() {
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white/10 rounded-xl p-3">
               <p className="text-white/70 text-xs mb-1">Cashback Earned</p>
-              <p className="text-white">PKR 0</p>
+              <p className="text-white">PKR {cashbackEarned.toLocaleString()}</p>
             </div>
             <div className="bg-white/10 rounded-xl p-3">
               <p className="text-white/70 text-xs mb-1">Reward Points</p>
-              <p className="text-white">0 pts</p>
+              <p className="text-white">{rewardPoints.toLocaleString()} pts</p>
             </div>
           </div>
         </motion.div>
@@ -195,7 +217,10 @@ export function CustomerDashboard() {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.6 + index * 0.1 }}
-                  onClick={() => navigateTo('product-detail')}
+                  onClick={() => {
+                    setSelectedProduct?.(product.raw || product);
+                    navigateTo('product-detail');
+                  }}
                   className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl transition-shadow"
                 >
                   <div className="relative">

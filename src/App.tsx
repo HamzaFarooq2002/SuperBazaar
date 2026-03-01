@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -117,6 +117,12 @@ export default function App() {
   const navigateTo = (screen: Screen) => {
     setCurrentScreen(screen);
   };
+
+  useEffect(() => {
+    const handleAuth401 = () => navigateTo('login');
+    window.addEventListener('auth-401', handleAuth401);
+    return () => window.removeEventListener('auth-401', handleAuth401);
+  }, []);
 
   const contextValue: AppContextType = {
     navigateTo,
