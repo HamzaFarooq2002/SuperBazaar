@@ -8,6 +8,9 @@
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
       alias: {
+        '@features': path.resolve(__dirname, './src/features'),
+        '@ui': path.resolve(__dirname, './src/components/ui'),
+        '@common': path.resolve(__dirname, './src/components/common'),
         'vaul@1.1.2': 'vaul',
         'sonner@2.0.3': 'sonner',
         'recharts@2.15.2': 'recharts',

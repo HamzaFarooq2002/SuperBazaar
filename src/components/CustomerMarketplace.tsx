@@ -8,7 +8,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function CustomerMarketplace() {
   const { navigateTo, setSelectedProduct } = useContext(AppContext);
-  const { totalItems } = useCart();
+  const { totalItems, addItem } = useCart();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -58,6 +58,21 @@ export function CustomerMarketplace() {
     const matchesSearch = !searchQuery || name.includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  const handleAddToCart = (product: any, e: any) => {
+    e.stopPropagation();
+    const raw = product.raw || {};
+
+    addItem({
+      productId: raw._id || product.id,
+      productName: product.name,
+      price: product.price,
+      quantity: 1,
+      supplier: raw.supplier?._id || raw.supplier || raw.merchant || '',
+      supplierName: raw.supplierName || raw.supplier?.name || 'Unknown Supplier',
+      image: product.image
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
@@ -191,6 +206,12 @@ export function CustomerMarketplace() {
                       </p>
                     </div>
                   )}
+                  <button
+                    onClick={(e) => handleAddToCart(product, e)}
+                    className="mt-3 w-full h-9 rounded-xl bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] text-white text-xs font-medium hover:shadow-lg transition-all cursor-pointer"
+                  >
+                    Add to Cart
+                  </button>
                 </div>
               </motion.div>
             ))}

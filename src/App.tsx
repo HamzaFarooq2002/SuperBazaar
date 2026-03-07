@@ -3,49 +3,73 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { OrderProvider } from './contexts/OrderContext';
-import { SplashScreen } from './components/SplashScreen';
-import { OnboardIntro } from './components/OnboardIntro';
-import { OnboardSignup } from './components/OnboardSignup';
-import { OnboardUserType } from './components/OnboardUserType';
-import { OnboardCNIC } from './components/OnboardCNIC';
-import { OnboardOTP } from './components/OnboardOTP';
-import { OnboardBiometric } from './components/OnboardBiometric';
-import { OnboardDocuments } from './components/OnboardDocuments';
-import { OnboardCongratulations } from './components/OnboardCongratulations';
-import { OnboardComplete } from './components/OnboardComplete';
-import { OnboardingOne } from './components/OnboardingOne';
-import { OnboardingTwo } from './components/OnboardingTwo';
-import { SignUp } from './components/SignUp';
-import { Login } from './components/Login';
-import { Dashboard } from './components/Dashboard';
-import { TransactionsList } from './components/TransactionsList';
-import { TransactionDetails } from './components/TransactionDetails';
-import { Analytics } from './components/Analytics';
-import { Expenses } from './components/Expenses';
-import { Payments } from './components/Payments';
-import { PaymentsMain } from './components/PaymentsMain';
-import { SNPLDetails } from './components/SNPLDetails';
-import { BNPLApplication } from './components/BNPLApplication';
-import { BNPLApproved } from './components/BNPLApproved';
-import { Marketplace } from './components/Marketplace';
-import { OrderTracking } from './components/OrderTracking';
-import { Profile } from './components/Profile';
-import { Settings } from './components/Settings';
-import { DataPreferences } from './components/DataPreferences';
-import { SuccessScreen } from './components/SuccessScreen';
-import { CreditScoreInitiate } from './components/CreditScoreInitiate';
-import { CreditScoreGenerating } from './components/CreditScoreGenerating';
-import { CreditScoreResult } from './components/CreditScoreResult';
-import { CreditScoreShare } from './components/CreditScoreShare';
-import { ProductDetail } from './components/ProductDetail';
-import { ShoppingCart } from './components/ShoppingCart';
-import { Checkout } from './components/Checkout';
-import { PaymentMethod } from './components/PaymentMethod';
-import { OrderConfirmation } from './components/OrderConfirmation';
-import { CustomerDashboard } from './components/CustomerDashboard';
-import { CustomerMarketplace } from './components/CustomerMarketplace';
-import { NanoLoan } from './components/NanoLoan';
-import { Rewards } from './components/Rewards';
+
+// Auth feature screens
+import {
+  SplashScreen,
+  OnboardIntro,
+  OnboardSignup,
+  OnboardUserType,
+  OnboardCNIC,
+  OnboardOTP,
+  OnboardBiometric,
+  OnboardDocuments,
+  OnboardCongratulations,
+  OnboardComplete,
+  OnboardingOne,
+  OnboardingTwo,
+  SignUp,
+  Login,
+} from './features/auth/pages';
+
+// Merchant feature screens
+import {
+  Dashboard,
+  Marketplace,
+  Analytics,
+  Expenses,
+  TransactionsList,
+  TransactionDetails,
+} from './features/merchant/pages';
+
+// Credit feature screens
+import {
+  BNPLApplication,
+  BNPLApproved,
+  CreditScoreInitiate,
+  CreditScoreGenerating,
+  CreditScoreResult,
+  CreditScoreShare,
+  SNPLDetails,
+  Payments,
+  PaymentsMain,
+} from './features/credit/pages';
+
+// Profile feature screens
+import {
+  Profile,
+  Settings,
+  DataPreferences,
+} from './features/profile/pages';
+
+// Customer feature screens
+import {
+  CustomerDashboard,
+  CustomerMarketplace,
+  ProductDetail,
+  ShoppingCart,
+  Checkout,
+  PaymentMethod,
+  OrderConfirmation,
+  OrderTracking,
+  NanoLoan,
+  Rewards,
+} from './features/customer/pages';
+
+// Common screens
+import {
+  SuccessScreen,
+} from './features/common/pages';
 
 export type Screen = 
   | 'splash' 
