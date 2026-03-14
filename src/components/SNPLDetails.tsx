@@ -8,7 +8,12 @@ import { ArrowLeft, Check, Home, Receipt, Wallet, User, Inbox } from 'lucide-rea
 export function SNPLDetails() {
   const { navigateTo } = useContext(AppContext);
   const { user } = useAuth();
-  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
+  const homeDashboard =
+    user?.userType === 'customer'
+      ? 'customer-dashboard'
+      : user?.userType === 'supplier'
+      ? 'supplier-dashboard'
+      : 'dashboard';
   const [autoRepayment, setAutoRepayment] = React.useState(false);
   const [creditLine, setCreditLine] = useState<any>(null);
   const [loading, setLoading] = useState(true);

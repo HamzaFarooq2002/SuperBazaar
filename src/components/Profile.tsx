@@ -45,7 +45,7 @@ export function Profile() {
       {/* Header */}
       <div className="bg-gradient-to-br from-[#102542] to-[#3D8A75] px-6 pt-12 pb-24">
         <button 
-          onClick={() => navigateTo(user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard')}
+          onClick={() => navigateTo(user?.userType === 'customer' ? 'customer-dashboard' : user?.userType === 'supplier' ? 'supplier-dashboard' : 'dashboard')}
           className="mb-6 text-white flex items-center gap-2"
         >
           <ArrowLeft className="w-6 h-6" />

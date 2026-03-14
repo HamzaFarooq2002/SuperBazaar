@@ -21,7 +21,13 @@ export function Login() {
 
     try {
       const user = await login(formData.email, formData.password);
-      navigateTo(user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard');
+      if (user?.userType === 'customer') {
+        navigateTo('customer-dashboard');
+      } else if (user?.userType === 'supplier') {
+        navigateTo('supplier-dashboard');
+      } else {
+        navigateTo('dashboard');
+      }
     } catch (err: any) {
       setError(err?.error?.message || 'Login failed. Please try again.');
     } finally {

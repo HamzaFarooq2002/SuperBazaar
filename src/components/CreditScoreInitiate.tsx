@@ -7,7 +7,12 @@ import { ArrowLeft, Shield, TrendingUp, FileText, Clock } from 'lucide-react';
 export function CreditScoreInitiate() {
   const { navigateTo } = useContext(AppContext);
   const { user } = useAuth();
-  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
+  const homeDashboard =
+    user?.userType === 'customer'
+      ? 'customer-dashboard'
+      : user?.userType === 'supplier'
+      ? 'supplier-dashboard'
+      : 'dashboard';
 
   const features = [
     {

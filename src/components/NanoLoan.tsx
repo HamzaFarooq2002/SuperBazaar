@@ -1,12 +1,24 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
-import { AppContext } from '../App';
+import { AppContext, Screen } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { ArrowLeft, Wallet, TrendingUp, Clock, CheckCircle, Zap } from 'lucide-react';
 
 export function NanoLoan() {
   const { navigateTo } = useContext(AppContext);
+  const { user } = useAuth();
   const [loanAmount, setLoanAmount] = useState(25000);
+
+  const homeDashboard: Screen =
+    user?.userType === 'customer'
+      ? 'customer-dashboard'
+      : user?.userType === 'supplier'
+      ? 'supplier-dashboard'
+      : 'dashboard';
+
+  const shopScreen: Screen =
+    user?.userType === 'customer' ? 'customer-marketplace' : 'marketplace';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [approved, setApproved] = useState(false);
@@ -73,13 +85,13 @@ export function NanoLoan() {
           </div>
           <div className="space-y-3">
             <button
-              onClick={() => navigateTo('customer-dashboard')}
+              onClick={() => navigateTo(homeDashboard)}
               className="w-full h-12 rounded-xl bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] text-white font-medium hover:shadow-lg transition-all"
             >
               Go to Dashboard
             </button>
             <button
-              onClick={() => navigateTo('customer-marketplace')}
+              onClick={() => navigateTo(shopScreen)}
               className="w-full h-12 rounded-xl bg-white border border-gray-200 text-[#102542] font-medium hover:bg-gray-50 transition-all"
             >
               Shop Now
@@ -96,7 +108,7 @@ export function NanoLoan() {
       <div className="bg-gradient-to-br from-purple-600 to-purple-800 px-6 pt-12 pb-8">
         <div className="flex justify-between items-center mb-6">
           <button 
-            onClick={() => navigateTo('customer-dashboard')}
+            onClick={() => navigateTo(homeDashboard)}
             className="text-white flex items-center gap-2"
           >
             <ArrowLeft className="w-6 h-6" />

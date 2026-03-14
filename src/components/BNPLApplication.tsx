@@ -8,7 +8,12 @@ import { X, ShoppingBag, Home, Receipt, Wallet, User } from 'lucide-react';
 export function BNPLApplication() {
   const { navigateTo } = useContext(AppContext);
   const { user } = useAuth();
-  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
+  const homeDashboard =
+    user?.userType === 'customer'
+      ? 'customer-dashboard'
+      : user?.userType === 'supplier'
+      ? 'supplier-dashboard'
+      : 'dashboard';
   const [amount, setAmount] = useState('4000');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

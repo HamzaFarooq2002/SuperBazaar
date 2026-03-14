@@ -12,7 +12,13 @@ export function SplashScreen() {
   useEffect(() => {
     const tapTimer = setTimeout(() => {
       if (!authLoading && isAuthenticated && user) {
-        navigateTo(user.userType === 'customer' ? 'customer-dashboard' : 'dashboard');
+        const target =
+          user.userType === 'customer'
+            ? 'customer-dashboard'
+            : user.userType === 'supplier'
+            ? 'supplier-dashboard'
+            : 'dashboard';
+        navigateTo(target);
       } else {
         setShowTap(true);
       }
@@ -25,7 +31,13 @@ export function SplashScreen() {
 
   const handleTap = () => {
     if (!authLoading && isAuthenticated && user) {
-      navigateTo(user.userType === 'customer' ? 'customer-dashboard' : 'dashboard');
+      const target =
+        user.userType === 'customer'
+          ? 'customer-dashboard'
+          : user.userType === 'supplier'
+          ? 'supplier-dashboard'
+          : 'dashboard';
+      navigateTo(target);
     } else {
       navigateTo('onboard-intro');
     }

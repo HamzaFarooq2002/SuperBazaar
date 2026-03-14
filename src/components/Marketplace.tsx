@@ -12,7 +12,12 @@ export function Marketplace() {
   const { navigateTo, setSelectedProduct } = useContext(AppContext);
   const { addItem, totalItems } = useCart();
   const { user } = useAuth();
-  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
+  const homeDashboard =
+    user?.userType === 'customer'
+      ? 'customer-dashboard'
+      : user?.userType === 'supplier'
+      ? 'supplier-dashboard'
+      : 'dashboard';
 
   const categories = ['All', 'Groceries', 'Beverages', 'Snacks', 'Personal Care', 'Household'];
   const [activeCategory, setActiveCategory] = useState('All');

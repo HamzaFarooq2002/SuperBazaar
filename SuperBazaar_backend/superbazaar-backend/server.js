@@ -2,9 +2,13 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const dns = require('dns');
 
 // Load environment variables
 dotenv.config();
+
+// Force IPv4 for MongoDB Atlas (fixes DNS issues on some networks)
+dns.setDefaultResultOrder('ipv4first');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -69,7 +73,10 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/superbazaar';
 
-mongoose.connect(MONGODB_URI)
+mongoose.connect(MONGODB_URI, {
+  family: 4,
+  serverSelectionTimeoutMS: 15000,
+})
   .then(() => {
     console.log('✅ MongoDB Connected Successfully');
     app.listen(PORT, () => {

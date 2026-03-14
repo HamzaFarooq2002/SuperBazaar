@@ -32,6 +32,9 @@ import {
   TransactionDetails,
 } from './features/merchant/pages';
 
+// Supplier feature screens
+import { SupplierDashboard, SupplierProducts, SupplierOrders } from './features/supplier/pages';
+
 // Credit feature screens
 import {
   BNPLApplication,
@@ -87,6 +90,9 @@ export type Screen =
   | 'signup' 
   | 'login' 
   | 'dashboard'
+  | 'supplier-dashboard'
+  | 'supplier-products'
+  | 'supplier-orders'
   | 'transactions'
   | 'transaction-details'
   | 'analytics'
@@ -197,6 +203,12 @@ export default function App() {
         return <Login key="login" />;
       case 'dashboard':
         return <Dashboard key="dashboard" />;
+      case 'supplier-dashboard':
+        return <SupplierDashboard key="supplier-dashboard" />;
+      case 'supplier-products':
+        return <SupplierProducts key="supplier-products" />;
+      case 'supplier-orders':
+        return <SupplierOrders key="supplier-orders" />;
       case 'transactions':
         return <TransactionsList key="transactions" />;
       case 'transaction-details':
