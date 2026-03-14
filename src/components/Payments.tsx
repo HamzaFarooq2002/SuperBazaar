@@ -8,7 +8,12 @@ import { ArrowLeft, CreditCard, Building, Smartphone, DollarSign, Inbox } from '
 export function Payments() {
   const { navigateTo } = useContext(AppContext);
   const { user } = useAuth();
-  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
+  const homeDashboard =
+    user?.userType === 'customer'
+      ? 'customer-dashboard'
+      : user?.userType === 'supplier'
+      ? 'supplier-dashboard'
+      : 'dashboard';
   const [recentPayments, setRecentPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

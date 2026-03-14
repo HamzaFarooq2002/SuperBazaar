@@ -9,7 +9,12 @@ import { X, CheckCircle, Calendar, Shield, Home, Receipt, Wallet, User } from 'l
 export function BNPLApproved() {
   const { navigateTo } = useContext(AppContext);
   const { user } = useAuth();
-  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
+  const homeDashboard =
+    user?.userType === 'customer'
+      ? 'customer-dashboard'
+      : user?.userType === 'supplier'
+      ? 'supplier-dashboard'
+      : 'dashboard';
   const [latestBNPL, setLatestBNPL] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 

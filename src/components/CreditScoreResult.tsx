@@ -8,7 +8,12 @@ import { ArrowLeft, TrendingUp, TrendingDown, Info, Share2, Download, RefreshCcw
 export function CreditScoreResult() {
   const { navigateTo } = useContext(AppContext);
   const { user } = useAuth();
-  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
+  const homeDashboard =
+    user?.userType === 'customer'
+      ? 'customer-dashboard'
+      : user?.userType === 'supplier'
+      ? 'supplier-dashboard'
+      : 'dashboard';
   const [showDetails, setShowDetails] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creditData, setCreditData] = useState<any>(null);

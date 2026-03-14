@@ -175,7 +175,7 @@ export function OnboardComplete() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.9 }}
-          onClick={() => navigateTo(userType === 'customer' ? 'customer-dashboard' : 'dashboard')}
+          onClick={() => navigateTo(userType === 'customer' ? 'customer-dashboard' : userType === 'supplier' ? 'supplier-dashboard' : 'dashboard')}
           className="w-full bg-white h-[43px] rounded-[10px] text-[#3D8A75] font-medium text-[15px] tracking-[0.6px] hover:bg-white/90 transition-colors mt-auto"
         >
           Go to Dashboard

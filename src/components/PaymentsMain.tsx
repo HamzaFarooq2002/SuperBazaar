@@ -8,7 +8,12 @@ import { ArrowLeft, FileText, TrendingUp, CreditCard, Home, Receipt, Wallet, Use
 export function PaymentsMain() {
   const { navigateTo } = useContext(AppContext);
   const { user: authUser } = useAuth();
-  const homeDashboard = authUser?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
+  const homeDashboard =
+    authUser?.userType === 'customer'
+      ? 'customer-dashboard'
+      : authUser?.userType === 'supplier'
+      ? 'supplier-dashboard'
+      : 'dashboard';
   const [activeTab, setActiveTab] = useState<'snpl' | 'bnpl'>('snpl');
   const [creditLines, setCreditLines] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

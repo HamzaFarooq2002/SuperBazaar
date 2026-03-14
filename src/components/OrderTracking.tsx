@@ -9,7 +9,12 @@ import { ArrowLeft, Package, Truck, CheckCircle, Clock, CreditCard, Loader2 } fr
 export function OrderTracking() {
   const { navigateTo } = useContext(AppContext);
   const { user } = useAuth();
-  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
+  const homeDashboard =
+    user?.userType === 'customer'
+      ? 'customer-dashboard'
+      : user?.userType === 'supplier'
+      ? 'supplier-dashboard'
+      : 'dashboard';
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

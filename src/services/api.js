@@ -312,6 +312,20 @@ const ordersAPI = {
       throw error;
     }
   },
+
+  /**
+   * Get orders received by the current supplier
+   * @param {Object} params - Query parameters (status, page, limit)
+   * @returns {Promise}
+   */
+  getSupplierOrders: async (params = {}) => {
+    try {
+      const response = await axiosInstance.get('/orders/supplier', { params });
+      return handleResponse(response);
+    } catch (error) {
+      throw error;
+    }
+  },
 };
 
 // Credit API

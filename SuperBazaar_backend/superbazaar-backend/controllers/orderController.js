@@ -272,9 +272,52 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
+// @desc    Get orders for a supplier (items belonging to this supplier)
+// @route   GET /api/orders/supplier
+// @access  Private (Suppliers only)
+const getSupplierOrders = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+
+    const matchStage = { 'items.supplier': req.user._id };
+    if (status) matchStage.status = status;
+
+    const skip = (page - 1) * limit;
+
+    const orders = await Order.find(matchStage)
+      .populate('items.product', 'name mainImage')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    const total = await Order.countDocuments(matchStage);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        orders,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Get supplier orders error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching supplier orders',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createOrder,
   getOrders,
   getOrder,
-  updateOrderStatus
+  updateOrderStatus,
+  getSupplierOrders
 };

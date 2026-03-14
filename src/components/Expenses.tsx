@@ -8,7 +8,12 @@ import { ArrowLeft, Plus, Coffee, Wifi, Car, Home, ShoppingCart, Zap, Inbox } fr
 export function Expenses() {
   const { navigateTo } = useContext(AppContext);
   const { user } = useAuth();
-  const homeDashboard = user?.userType === 'customer' ? 'customer-dashboard' : 'dashboard';
+  const homeDashboard =
+    user?.userType === 'customer'
+      ? 'customer-dashboard'
+      : user?.userType === 'supplier'
+      ? 'supplier-dashboard'
+      : 'dashboard';
   const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
