@@ -1,23 +1,120 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import { useOrder } from '../hooks/useOrder';
 import api from '../services/api';
-import { ArrowLeft, CreditCard, Wallet, CircleDollarSign, Banknote, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Wallet, Banknote, CreditCard, ChevronRight } from 'lucide-react';
+import { DELIVERY_FEE } from '../config/pricing';
 
 export function PaymentMethod() {
   const { navigateTo } = useContext(AppContext);
   const { items, totalPrice, clearCart } = useCart();
   const { user } = useAuth();
   const { setCurrentOrder, shippingFormData, setShippingFormData } = useOrder();
-  const [selectedMethod, setSelectedMethod] = useState<'cash' | 'installment' | 'nano-loan' | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<'cash' | 'snpl' | 'bnpl' | null>('cash');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [snplEligible, setSnplEligible] = useState(false);
+  const [snplReason, setSnplReason] = useState('');
+  const [checkingSnpl, setCheckingSnpl] = useState(true);
+  const [bnplEligible, setBnplEligible] = useState(false);
+  const [bnplReason, setBnplReason] = useState('');
+  const [checkingBnpl, setCheckingBnpl] = useState(true);
 
-  const deliveryFee = 500;
-  const orderTotal = totalPrice + deliveryFee;
+  const isCustomer = user?.userType === 'customer';
+  const isMerchant = user?.userType === 'merchant';
+
+  const orderTotal = totalPrice + DELIVERY_FEE;
+
+  useEffect(() => {
+    const checkSnplEligibility = async () => {
+      setCheckingSnpl(true);
+      try {
+        const [scoreResponse, creditLinesResponse] = await Promise.all([
+          api.credit.getCreditScore(),
+          api.credit.getCreditLines(),
+        ]);
+
+        const creditScore = scoreResponse?.data?.creditScore?.score ?? 0;
+        const suggestedLimit = scoreResponse?.data?.suggestedCreditLimit ?? 0;
+        const lines = creditLinesResponse?.data?.creditLines || creditLinesResponse?.data || [];
+        const activeSnplLines = (Array.isArray(lines) ? lines : []).filter(
+          (line: any) => line.type === 'snpl' && (line.status === 'approved' || line.status === 'active')
+        );
+        const availableLimit = activeSnplLines.reduce(
+          (sum: number, line: any) => sum + (line.availableCredit || 0),
+          0
+        );
+        const effectiveLimit = availableLimit > 0 ? availableLimit : suggestedLimit;
+
+        if (creditScore < 600) {
+          setSnplEligible(false);
+          setSnplReason('Credit score below threshold');
+        } else if (effectiveLimit < orderTotal) {
+          setSnplEligible(false);
+          setSnplReason('Insufficient credit limit');
+        } else {
+          setSnplEligible(true);
+          setSnplReason('');
+        }
+      } catch (eligibilityError) {
+        setSnplEligible(false);
+        setSnplReason('Unable to verify SNPL eligibility');
+      } finally {
+        setCheckingSnpl(false);
+      }
+    };
+
+    checkSnplEligibility();
+  }, [orderTotal]);
+
+  useEffect(() => {
+    if (!isCustomer) {
+      setCheckingBnpl(false);
+      return;
+    }
+    const checkBnplEligibility = async () => {
+      setCheckingBnpl(true);
+      try {
+        const [scoreResponse, creditLinesResponse] = await Promise.all([
+          api.credit.getCreditScore(),
+          api.credit.getCreditLines(),
+        ]);
+
+        const creditScore = scoreResponse?.data?.creditScore?.score ?? 0;
+        const suggestedLimit = scoreResponse?.data?.suggestedCreditLimit ?? 0;
+        const lines = creditLinesResponse?.data?.creditLines || creditLinesResponse?.data || [];
+        const activeBnplLines = (Array.isArray(lines) ? lines : []).filter(
+          (line: any) => line.type === 'bnpl' && (line.status === 'approved' || line.status === 'active')
+        );
+        const availableLimit = activeBnplLines.reduce(
+          (sum: number, line: any) => sum + (line.availableCredit || 0),
+          0
+        );
+        const effectiveLimit = availableLimit > 0 ? availableLimit : suggestedLimit;
+
+        if (creditScore < 600) {
+          setBnplEligible(false);
+          setBnplReason('Credit score below threshold');
+        } else if (effectiveLimit < orderTotal) {
+          setBnplEligible(false);
+          setBnplReason('Insufficient credit limit');
+        } else {
+          setBnplEligible(true);
+          setBnplReason('');
+        }
+      } catch {
+        setBnplEligible(false);
+        setBnplReason('Unable to verify BNPL eligibility');
+      } finally {
+        setCheckingBnpl(false);
+      }
+    };
+
+    checkBnplEligibility();
+  }, [orderTotal, isCustomer]);
 
   const handleConfirmPayment = async () => {
     if (!selectedMethod) return;
@@ -26,11 +123,7 @@ export function PaymentMethod() {
     setError('');
 
     try {
-      // Map UI payment method to API payment method
-      // Backend accepts: 'cash', 'bank_transfer', 'snpl', 'bnpl'
-      const apiPaymentMethod = 
-        selectedMethod === 'installment' ? 'bnpl' :
-        selectedMethod === 'nano-loan' ? 'snpl' : 'cash';
+      const apiPaymentMethod = selectedMethod;
 
       // Build shipping address from Checkout form if available, else fallbacks
       const street = shippingFormData?.address ?? user?.businessAddress ?? 'Address not specified';
@@ -44,6 +137,8 @@ export function PaymentMethod() {
         })),
         paymentMethod: apiPaymentMethod,
         shippingAddress: {
+          recipientName: shippingFormData?.name || user?.name || '',
+          phone: user?.phone || '',
           street,
           city,
           state: shippingFormData?.area || '',
@@ -87,24 +182,24 @@ export function PaymentMethod() {
   };
 
   const paymentMethods = [
-    {
-      id: 'installment' as const,
-      icon: CreditCard,
-      title: 'Pay in Installments',
-      description: `Split into 4 easy payments of PKR ${Math.round(orderTotal / 4).toLocaleString()}`,
-      badge: 'Popular',
-      color: 'from-[#3D8A75] to-[#102542]',
-      details: '0% markup for 3 months'
-    },
-    {
-      id: 'nano-loan' as const,
+    ...(isMerchant ? [{
+      id: 'snpl' as const,
       icon: Wallet,
-      title: 'Nano Loan',
-      description: 'Get instant nano loan up to PKR 50,000',
-      badge: 'Cashback 5%',
+      title: 'Stock Now Pay Later (SNPL)',
+      description: 'Use your approved merchant credit line for this order',
+      badge: snplEligible ? 'Available' : 'Unavailable',
       color: 'from-[#102542] to-[#3D8A75]',
-      details: 'Pay back in 6 months'
-    },
+      details: snplEligible ? 'Eligible for this order' : (snplReason || 'Not eligible')
+    }] : []),
+    ...(isCustomer ? [{
+      id: 'bnpl' as const,
+      icon: CreditCard,
+      title: 'Buy Now Pay Later (BNPL)',
+      description: 'Split your purchase into easy installments',
+      badge: bnplEligible ? 'Available' : 'Unavailable',
+      color: 'from-[#102542] to-[#3D8A75]',
+      details: bnplEligible ? 'Eligible for this order' : (bnplReason || 'Not eligible')
+    }] : []),
     {
       id: 'cash' as const,
       icon: Banknote,
@@ -184,8 +279,17 @@ export function PaymentMethod() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 + index * 0.1 }}
-              onClick={() => setSelectedMethod(method.id)}
-              className={`bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-5 cursor-pointer transition-all hover:bg-white/70 hover:scale-[1.02] ${
+              onClick={() => {
+                if (method.id === 'snpl' && (!snplEligible || checkingSnpl)) return;
+                if (method.id === 'bnpl' && (!bnplEligible || checkingBnpl)) return;
+                setSelectedMethod(method.id);
+              }}
+              className={`bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-5 transition-all ${
+                (method.id === 'snpl' && (!snplEligible || checkingSnpl)) ||
+                (method.id === 'bnpl' && (!bnplEligible || checkingBnpl))
+                  ? 'opacity-50 cursor-not-allowed'
+                  : 'cursor-pointer hover:bg-white/70 hover:scale-[1.02]'
+              } ${
                 selectedMethod === method.id ? 'ring-2 ring-[#3D8A75] bg-white/70' : ''
               }`}
             >
@@ -199,7 +303,7 @@ export function PaymentMethod() {
                       <p className="text-[#102542] mb-1">{method.title}</p>
                       {method.badge && (
                         <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] rounded-full">
-                          {method.badge}
+                          {(checkingSnpl && method.id === 'snpl') || (checkingBnpl && method.id === 'bnpl') ? 'Checking...' : method.badge}
                         </span>
                       )}
                     </div>
@@ -212,27 +316,7 @@ export function PaymentMethod() {
                 </div>
               </div>
 
-              {/* Installment Breakdown */}
-              {method.id === 'installment' && selectedMethod === 'installment' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="mt-4 pt-4 border-t border-gray-200"
-                >
-                  <p className="text-[#102542] text-sm mb-3">Payment Schedule</p>
-                  <div className="space-y-2">
-                    {[1, 2, 3, 4].map((num) => (
-                      <div key={num} className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600">Payment {num}</span>
-                        <span className="text-[#102542]">PKR {Math.round(orderTotal / 4).toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Nano Loan Details */}
-              {method.id === 'nano-loan' && selectedMethod === 'nano-loan' && (
+              {method.id === 'snpl' && selectedMethod === 'snpl' && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -244,12 +328,27 @@ export function PaymentMethod() {
                       <span className="text-[#102542]">PKR {orderTotal.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Cashback (5%)</span>
-                      <span className="text-green-600">- PKR {(orderTotal * 0.05).toLocaleString()}</span>
+                      <span className="text-gray-600">Monthly Payment</span>
+                      <span className="text-[#102542]">PKR {orderTotal.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {method.id === 'bnpl' && selectedMethod === 'bnpl' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="mt-4 pt-4 border-t border-gray-200"
+                >
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">Total Amount</span>
+                      <span className="text-[#102542]">PKR {orderTotal.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Monthly Payment</span>
-                      <span className="text-[#102542]">PKR {Math.round(orderTotal / 6).toLocaleString()}</span>
+                      <span className="text-gray-600">Monthly Installment</span>
+                      <span className="text-[#102542]">PKR {Math.ceil(orderTotal / 3).toLocaleString()} x 3</span>
                     </div>
                   </div>
                 </motion.div>

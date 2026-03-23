@@ -95,19 +95,19 @@ const getProduct = async (req, res) => {
 
 // @desc    Create product
 // @route   POST /api/products
-// @access  Private (Suppliers only)
+// @access  Private (Suppliers and Merchants)
 const createProduct = async (req, res) => {
   try {
-    // Ensure user is a supplier
-    if (req.user.userType !== 'supplier') {
+    if (req.user.userType !== 'supplier' && req.user.userType !== 'merchant') {
       return res.status(403).json({
         success: false,
-        message: 'Only suppliers can create products'
+        message: 'Only suppliers and merchants can create products'
       });
     }
     
     const productData = {
       ...req.body,
+      // supplier field stores the owner ID for both suppliers and merchants
       supplier: req.user.id,
       supplierName: req.user.businessName || req.user.name
     };

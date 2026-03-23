@@ -85,19 +85,6 @@ export function Marketplace() {
         <h2 className="text-white mb-2">Wholesale Marketplace</h2>
         <p className="text-[#CDD7D6] text-sm mb-6">Stock your shop with Stocknow Paylater</p>
         
-        {/* Stocknow Paylater Banner */}
-        <div className="glass p-4 rounded-2xl mb-4 bg-white/10 backdrop-blur-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-              <CreditCard className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <p className="text-white">Available Credit</p>
-              <p className="text-white">PKR 3,50,000</p>
-            </div>
-          </div>
-        </div>
-
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />

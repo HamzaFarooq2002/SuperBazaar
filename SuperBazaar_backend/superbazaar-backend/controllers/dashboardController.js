@@ -3,6 +3,36 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const CreditLine = require('../models/CreditLine');
 
+const aggregateTransactions = (transactions = []) => {
+  let income = 0;
+  let expenses = 0;
+  const dailyData = {};
+  const categoryBreakdown = {};
+
+  transactions.forEach((txn) => {
+    const amount = Math.abs(txn.amount || 0);
+    const dateKey = (txn.transactionDate || txn.createdAt).toISOString().split('T')[0];
+
+    if (!dailyData[dateKey]) {
+      dailyData[dateKey] = { income: 0, expenses: 0 };
+    }
+
+    if (txn.type === 'income') {
+      income += amount;
+      dailyData[dateKey].income += amount;
+    }
+
+    if (txn.type === 'expense' && txn.status === 'completed') {
+      expenses += amount;
+      dailyData[dateKey].expenses += amount;
+      const category = txn.category || 'other';
+      categoryBreakdown[category] = (categoryBreakdown[category] || 0) + amount;
+    }
+  });
+
+  return { income, expenses, dailyData, categoryBreakdown };
+};
+
 // @desc    Get dashboard statistics
 // @route   GET /api/dashboard/stats
 // @access  Private
@@ -33,22 +63,12 @@ const getDashboardStats = async (req, res) => {
         transactionDate: { $gte: lastMonth, $lte: lastMonthEnd }
       });
       
-      // Calculate revenue and expenses
-      const currentRevenue = currentMonthTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      const currentExpenses = currentMonthTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      const lastRevenue = lastMonthTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      const lastExpenses = lastMonthTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
+      const currentAgg = aggregateTransactions(currentMonthTransactions);
+      const lastAgg = aggregateTransactions(lastMonthTransactions);
+      const currentRevenue = currentAgg.income;
+      const currentExpenses = currentAgg.expenses;
+      const lastRevenue = lastAgg.income;
+      const lastExpenses = lastAgg.expenses;
       
       // Calculate changes
       const revenueChange = lastRevenue > 0 
@@ -85,6 +105,12 @@ const getDashboardStats = async (req, res) => {
         .sort({ transactionDate: -1 })
         .limit(10);
       
+      const currentProfit = Math.max(0, currentRevenue - currentExpenses);
+      const lastProfit = Math.max(0, lastRevenue - lastExpenses);
+      const profitChange = lastProfit !== 0
+        ? ((currentProfit - lastProfit) / Math.abs(lastProfit) * 100).toFixed(1)
+        : 0;
+
       stats = {
         revenue: {
           current: currentRevenue,
@@ -97,9 +123,9 @@ const getDashboardStats = async (req, res) => {
           positive: expenseChange < 0 // Lower expenses are good
         },
         netProfit: {
-          current: currentRevenue - currentExpenses,
-          change: '+8.3%', // Mock for MVP
-          positive: true
+          current: currentProfit,
+          change: `${profitChange > 0 ? '+' : ''}${profitChange}%`,
+          positive: profitChange >= 0
         },
         credit: {
           totalLimit: totalCreditLimit,
@@ -175,44 +201,27 @@ const getAnalytics = async (req, res) => {
       status: 'completed',
       transactionDate: { $gte: startDate }
     }).sort({ transactionDate: 1 });
-    
-    // Group by date
-    const dailyData = {};
-    transactions.forEach(txn => {
-      const dateKey = txn.transactionDate.toISOString().split('T')[0];
-      if (!dailyData[dateKey]) {
-        dailyData[dateKey] = { income: 0, expenses: 0 };
-      }
-      
-      if (txn.type === 'income') {
-        dailyData[dateKey].income += txn.amount;
-      } else if (txn.type === 'expense') {
-        dailyData[dateKey].expenses += txn.amount;
-      }
-    });
-    
+
+    const aggregated = aggregateTransactions(transactions);
+
     // Format for charts
-    const chartData = Object.entries(dailyData).map(([date, data]) => ({
+    const chartData = Object.entries(aggregated.dailyData).map(([date, data]) => ({
       date,
       income: data.income,
       expenses: data.expenses,
       profit: data.income - data.expenses
     }));
-    
-    // Category breakdown
-    const categoryBreakdown = {};
-    transactions.forEach(txn => {
-      if (!categoryBreakdown[txn.category]) {
-        categoryBreakdown[txn.category] = 0;
-      }
-      categoryBreakdown[txn.category] += txn.amount;
-    });
-    
+
     res.status(200).json({
       success: true,
       data: {
         chartData,
-        categoryBreakdown,
+        categoryBreakdown: aggregated.categoryBreakdown,
+        totals: {
+          income: aggregated.income,
+          expenses: aggregated.expenses,
+          profit: aggregated.income - aggregated.expenses
+        },
         period
       }
     });

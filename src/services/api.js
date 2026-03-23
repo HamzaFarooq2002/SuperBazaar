@@ -371,20 +371,6 @@ const creditAPI = {
   },
 
   /**
-   * Apply for BNPL (Buy Now Pay Later) - Customers
-   * @param {Object} orderData - Order information for BNPL
-   * @returns {Promise}
-   */
-  applyBNPL: async (orderData) => {
-    try {
-      const response = await axiosInstance.post('/credit/bnpl/apply', orderData);
-      return handleResponse(response);
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  /**
    * Make payment on credit line
    * @param {string} creditLineId - Credit line ID
    * @param {Object} paymentData - Payment information
@@ -419,9 +405,9 @@ const dashboardAPI = {
    * Get analytics data
    * @returns {Promise}
    */
-  getAnalytics: async () => {
+  getAnalytics: async (params = {}) => {
     try {
-      const response = await axiosInstance.get('/dashboard/analytics');
+      const response = await axiosInstance.get('/dashboard/analytics', { params });
       return handleResponse(response);
     } catch (error) {
       throw error;

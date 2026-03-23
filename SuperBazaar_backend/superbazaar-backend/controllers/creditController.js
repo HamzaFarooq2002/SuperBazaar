@@ -170,100 +170,6 @@ const applySNPL = async (req, res) => {
   }
 };
 
-// @desc    Apply for BNPL (Buy Now Pay Later)
-// @route   POST /api/credit/bnpl/apply
-// @access  Private (Customers only)
-const applyBNPL = async (req, res) => {
-  try {
-    if (req.user.userType !== 'customer') {
-      return res.status(403).json({
-        success: false,
-        message: 'BNPL is only available for customers'
-      });
-    }
-    
-    const { purchaseAmount } = req.body;
-    
-    if (!purchaseAmount || purchaseAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide a valid purchase amount'
-      });
-    }
-    
-    // Calculate credit limit (simplified for customers)
-    const creditLimit = 50000; // Default BNPL limit for MVP
-    
-    if (purchaseAmount > creditLimit) {
-      return res.status(400).json({
-        success: false,
-        message: `Purchase amount exceeds BNPL limit of PKR ${creditLimit.toLocaleString()}`
-      });
-    }
-    
-    // Create BNPL credit line
-    const bnpl = new CreditLine({
-      user: req.user.id,
-      userName: req.user.name,
-      type: 'bnpl',
-      creditLimit: creditLimit,
-      availableCredit: creditLimit,
-      usedCredit: 0,
-      principalAmount: purchaseAmount,
-      interestRate: parseFloat(process.env.BNPL_INTEREST_RATE) || 0,
-      tenureMonths: parseInt(process.env.BNPL_TENURE_MONTHS) || 4,
-      status: 'approved',
-      approvedAt: Date.now(),
-      riskLevel: 'low'
-    });
-    
-    // Generate installment schedule
-    bnpl.generateInstallments();
-    
-    await bnpl.save();
-    
-    // Create disbursement transaction so the loan is recorded
-    try {
-      await Transaction.create({
-        user: req.user.id,
-        type: 'loan_disbursement',
-        category: 'loan',
-        amount: purchaseAmount,
-        description: 'Nano loan / BNPL disbursement',
-        relatedCreditLine: bnpl._id,
-        paymentMethod: 'bnpl',
-        status: 'completed'
-      });
-    } catch (txnErr) {
-      console.error('BNPL disbursement transaction failed (non-blocking):', txnErr.message);
-    }
-
-    // Credit the customer's wallet
-    try {
-      const user = await User.findById(req.user.id);
-      if (user) {
-        user.walletBalance = (user.walletBalance || 0) + purchaseAmount;
-        await user.save();
-      }
-    } catch (walletErr) {
-      console.error('Wallet credit failed (non-blocking):', walletErr.message);
-    }
-    
-    res.status(201).json({
-      success: true,
-      message: 'BNPL approved! Funds disbursed to your wallet.',
-      data: { creditLine: bnpl, disbursedAmount: purchaseAmount }
-    });
-  } catch (error) {
-    console.error('Apply BNPL error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error processing BNPL application',
-      error: error.message
-    });
-  }
-};
-
 // @desc    Make payment on credit line
 // @route   POST /api/credit/:creditLineId/payment
 // @access  Private
@@ -360,6 +266,5 @@ module.exports = {
   getCreditLines,
   getCreditScore,
   applySNPL,
-  applyBNPL,
   makePayment
 };

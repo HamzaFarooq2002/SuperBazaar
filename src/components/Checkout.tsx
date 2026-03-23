@@ -4,6 +4,7 @@ import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import { useOrder } from '../hooks/useOrder';
+import { DELIVERY_FEE } from '../config/pricing';
 import { ArrowLeft, MapPin, Phone, User, Home, Edit2 } from 'lucide-react';
 
 export function Checkout() {
@@ -13,13 +14,20 @@ export function Checkout() {
   const { setShippingFormData } = useOrder();
   const [formData, setFormData] = useState({
     name: user?.name || '',
-    phone: user?.phone || '',
     address: user?.businessAddress || '',
     city: 'Karachi',
     area: ''
   });
 
-  const orderTotal = totalPrice || 0;
+  React.useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      name: user?.name || '',
+    }));
+  }, [user]);
+
+  const subtotal = totalPrice || 0;
+  const orderTotal = subtotal + DELIVERY_FEE;
 
   // Calculate estimated delivery date dynamically
   const getEstimatedDelivery = () => {
@@ -115,10 +123,9 @@ export function Checkout() {
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  placeholder="Enter your phone number"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-white/60 text-[#102542] focus:outline-none focus:ring-2 focus:ring-[#3D8A75] transition-all"
+                  value={user?.phone || ''}
+                  readOnly
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 text-[#102542] cursor-default"
                 />
               </div>
             </div>
@@ -181,9 +188,6 @@ export function Checkout() {
             <button className="py-3 px-4 rounded-xl bg-[#3D8A75] text-white text-sm">
               Standard (3-5 days)
             </button>
-            <button className="py-3 px-4 rounded-xl bg-white/70 text-[#102542] text-sm border border-white/60">
-              Express (1-2 days)
-            </button>
           </div>
           <div className="mt-3 flex items-start gap-2 p-3 bg-blue-50 rounded-xl">
             <MapPin className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -220,7 +224,7 @@ export function Checkout() {
             onClick={() => {
               setShippingFormData({
                 name: formData.name,
-                phone: formData.phone,
+                phone: user?.phone || '',
                 address: formData.address,
                 city: formData.city,
                 area: formData.area

@@ -13,9 +13,9 @@ const {
 router.get('/', getProducts);
 router.get('/:id', getProduct);
 
-// Protected routes (Suppliers only)
-router.post('/', protect, restrictTo('supplier'), createProduct);
-router.put('/:id', protect, restrictTo('supplier'), updateProduct);
-router.delete('/:id', protect, restrictTo('supplier'), deleteProduct);
+// Protected routes (Suppliers and Merchants)
+router.post('/', protect, restrictTo('supplier', 'merchant'), createProduct);
+router.put('/:id', protect, restrictTo('supplier', 'merchant'), updateProduct);
+router.delete('/:id', protect, restrictTo('supplier', 'merchant'), deleteProduct);
 
 module.exports = router;

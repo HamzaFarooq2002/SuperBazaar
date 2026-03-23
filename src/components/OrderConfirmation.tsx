@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useOrder } from '../hooks/useOrder';
 import { useAuth } from '../hooks/useAuth';
-import { CheckCircle, Package, MapPin, CreditCard, Calendar, Download, Share2 } from 'lucide-react';
+import { CheckCircle, Package, MapPin, CreditCard, Calendar } from 'lucide-react';
 
 export function OrderConfirmation() {
   const { navigateTo } = useContext(AppContext);
@@ -30,8 +30,7 @@ export function OrderConfirmation() {
 
   // Format payment method for display
   const paymentMethodDisplay = 
-    currentOrder.paymentMethod === 'bnpl' ? 'Pay in Installments (BNPL)' :
-    currentOrder.paymentMethod === 'credit' ? 'Nano Loan' :
+    currentOrder.paymentMethod === 'snpl' ? 'Stock Now Pay Later' :
     currentOrder.paymentMethod === 'cash' ? 'Cash on Delivery' : 
     currentOrder.paymentMethod;
 
@@ -159,23 +158,6 @@ export function OrderConfirmation() {
           </div>
         </motion.div>
 
-        {/* Action Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="grid grid-cols-2 gap-3 mb-4"
-        >
-          <button className="bg-white/50 backdrop-blur-md border border-white/60 rounded-xl py-3 flex items-center justify-center gap-2 text-[#102542] hover:bg-white/70 transition-all">
-            <Download className="w-5 h-5" />
-            <span className="text-sm">Download</span>
-          </button>
-          <button className="bg-white/50 backdrop-blur-md border border-white/60 rounded-xl py-3 flex items-center justify-center gap-2 text-[#102542] hover:bg-white/70 transition-all">
-            <Share2 className="w-5 h-5" />
-            <span className="text-sm">Share</span>
-          </button>
-        </motion.div>
-
         {/* Track Order Button */}
         <motion.button
           initial={{ opacity: 0, y: 10 }}
@@ -199,7 +181,7 @@ export function OrderConfirmation() {
         </motion.button>
 
         {/* Rewards Message */}
-        {currentOrder.paymentMethod === 'credit' && (
+        {currentOrder.paymentMethod === 'snpl' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}

@@ -23,8 +23,9 @@ export function Expenses() {
         const response = await api.users.getTransactions();
         if (response.success) {
           const allTxns = response.data?.transactions || response.data || [];
-          // Filter only expense-type transactions
-          const expenseTxns = allTxns.filter((t: any) => t.type === 'expense' || t.type === 'loan_repayment');
+          const expenseTxns = allTxns.filter(
+            (t: any) => t.type === 'expense' && t.status === 'completed'
+          );
           setExpenses(expenseTxns);
         }
       } catch (error) {
@@ -40,7 +41,7 @@ export function Expenses() {
   const categoryMap: Record<string, number> = {};
   expenses.forEach((exp: any) => {
     const cat = exp.category || 'other';
-    categoryMap[cat] = (categoryMap[cat] || 0) + Math.abs(exp.amount || 0);
+    categoryMap[cat] = (categoryMap[cat] || 0) + (exp.amount || 0);
   });
 
   const categoryIcons: Record<string, any> = {
@@ -76,7 +77,7 @@ export function Expenses() {
     color: categoryColors[name] || 'bg-gray-100 text-gray-600'
   }));
 
-  const totalExpenses = expenses.reduce((sum, exp) => sum + Math.abs(exp.amount || 0), 0);
+  const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
@@ -171,7 +172,7 @@ export function Expenses() {
                           </span>
                         </div>
                       </div>
-                      <span className="text-red-600">-PKR {Math.abs(expense.amount || 0).toLocaleString()}</span>
+                      <span className="text-red-600">-PKR {(expense.amount || 0).toLocaleString()}</span>
                     </div>
                   </motion.div>
                 ))}

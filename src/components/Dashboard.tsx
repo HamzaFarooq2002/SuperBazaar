@@ -15,7 +15,8 @@ import {
   User,
   Receipt,
   Clock,
-  TrendingUp
+  TrendingUp,
+  Package
 } from 'lucide-react';
 
 export function Dashboard() {
@@ -32,7 +33,7 @@ export function Dashboard() {
     try {
       const response = await api.dashboard.getDashboardStats();
       if (response.success) {
-        setDashboardData(response.data);
+        setDashboardData(response.data?.stats || null);
       }
     } catch (error) {
       console.error('Failed to load dashboard:', error);
@@ -41,45 +42,38 @@ export function Dashboard() {
     }
   };
 
-  const loanStats = {
-    creditLimit: dashboardData?.availableCredit ? dashboardData.creditUtilization * 10 : 0,
-    available: dashboardData?.availableCredit ?? 0,
-    used: dashboardData?.creditUtilization ? dashboardData.creditUtilization * 500000 / 100 : 0,
-    dueDate: dashboardData?.dueDate || '--',
-    nextPayment: dashboardData?.nextPayment ?? 0
-  };
-
   const stats = [
     { 
       label: 'Total Revenue', 
-      value: `PKR ${(dashboardData?.totalRevenue ?? 0).toLocaleString()}`, 
-      change: dashboardData?.revenueChange || '--', 
-      positive: true, 
+      value: `PKR ${(dashboardData?.revenue?.current ?? 0).toLocaleString()}`,
+      change: dashboardData?.revenue?.change || '--',
+      positive: !!dashboardData?.revenue?.positive,
       icon: ArrowUpRight 
     },
     { 
       label: 'Expenses', 
-      value: `PKR ${(dashboardData?.totalExpenses ?? 0).toLocaleString()}`, 
-      change: dashboardData?.expenseChange || '--', 
-      positive: true, 
+      value: `PKR ${(dashboardData?.expenses?.current ?? 0).toLocaleString()}`,
+      change: dashboardData?.expenses?.change || '--',
+      positive: !!dashboardData?.expenses?.positive,
       icon: ArrowDownRight 
     },
     { 
       label: 'Net Profit', 
-      value: `PKR ${(dashboardData?.netProfit ?? 0).toLocaleString()}`, 
-      change: dashboardData?.profitChange || '--', 
-      positive: true, 
+      value: `PKR ${(dashboardData?.netProfit?.current ?? 0).toLocaleString()}`,
+      change: dashboardData?.netProfit?.change || '--',
+      positive: !!dashboardData?.netProfit?.positive,
       icon: Wallet 
     },
   ];
 
-  const recentTransactions = dashboardData?.recentTransactions ?? [];
+  const recentTransactions = dashboardData?.recentTransactions || [];
 
   const quickActions = [
     { label: 'Payments', icon: CreditCard, action: () => navigateTo('payments-main'), color: 'bg-[#3D8A75]' },
     { label: 'Marketplace', icon: ShoppingBag, action: () => navigateTo('marketplace'), color: 'bg-[#102542]' },
     { label: 'My Orders', icon: Receipt, action: () => navigateTo('order-tracking'), color: 'bg-[#3D8A75]' },
     { label: 'Analytics', icon: BarChart3, action: () => navigateTo('analytics'), color: 'bg-[#102542]' },
+    { label: 'My Products', icon: Package, action: () => navigateTo('merchant-products'), color: 'bg-[#102542]' },
   ];
 
   return (

@@ -2,6 +2,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const CreditLine = require('../models/CreditLine');
 const Transaction = require('../models/Transaction');
+const { DELIVERY_FEE, TAX_RATE } = require('../config/pricing');
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -9,38 +10,35 @@ const Transaction = require('../models/Transaction');
 const createOrder = async (req, res) => {
   try {
     const { items, paymentMethod, shippingAddress, useCreditLine } = req.body;
-    
+
     if (!items || items.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'Please provide order items'
       });
     }
-    
-    // Fetch product details and calculate totals
+
     const orderItems = [];
     let subtotal = 0;
-    
+
     for (const item of items) {
       const product = await Product.findById(item.productId);
-      
+
       if (!product) {
         return res.status(404).json({
           success: false,
           message: `Product not found: ${item.productId}`
         });
       }
-      
-      // Check stock
+
       if (product.stockQuantity < item.quantity) {
         return res.status(400).json({
           success: false,
           message: `Insufficient stock for ${product.name}`
         });
       }
-      
+
       const itemTotal = product.price * item.quantity;
-      
       orderItems.push({
         product: product._id,
         productName: product.name,
@@ -50,15 +48,14 @@ const createOrder = async (req, res) => {
         pricePerUnit: product.price,
         totalPrice: itemTotal
       });
-      
+
       subtotal += itemTotal;
     }
-    
-    const tax = subtotal * 0.05; // 5% tax
-    const shippingCost = 200; // Flat rate for MVP
-    const totalAmount = subtotal + tax + shippingCost;
-    
-    // Create order
+
+    const tax = subtotal * TAX_RATE;
+    const shippingCost = DELIVERY_FEE;
+    const totalAmount = subtotal + shippingCost;
+
     const order = new Order({
       merchant: req.user.id,
       merchantName: req.user.businessName || req.user.name,
@@ -70,63 +67,63 @@ const createOrder = async (req, res) => {
       paymentMethod,
       shippingAddress
     });
-    
-    // Handle SNPL payment
+
     if (paymentMethod === 'snpl' && useCreditLine) {
       const creditLine = await CreditLine.findById(useCreditLine);
-      
+
       if (!creditLine || creditLine.user.toString() !== req.user.id) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid credit line'
-        });
+        return res.status(400).json({ success: false, message: 'Invalid credit line' });
       }
-      
+
       if (creditLine.availableCredit < totalAmount) {
-        return res.status(400).json({
-          success: false,
-          message: 'Insufficient credit available'
-        });
+        return res.status(400).json({ success: false, message: 'Insufficient credit available' });
       }
-      
-      // Update credit line
+
       creditLine.usedCredit += totalAmount;
       creditLine.orders.push(order._id);
       await creditLine.save();
-      
+
       order.creditLine = creditLine._id;
       order.paymentStatus = 'paid';
     }
-    
+
     await order.save();
-    
-    // Update product stock
+
     for (const item of orderItems) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { stockQuantity: -item.quantity }
-      });
+      await Product.findByIdAndUpdate(item.product, { $inc: { stockQuantity: -item.quantity } });
     }
-    
-    // Create transaction
-    // Map order paymentMethod to transaction-safe value
+
+    const revenueBySupplier = {};
+    for (const item of orderItems) {
+      const sid = item.supplier.toString();
+      revenueBySupplier[sid] = (revenueBySupplier[sid] || 0) + item.totalPrice;
+    }
+
     const txnPaymentMethod = paymentMethod || 'other';
-    
-    try {
+
+    for (const [sellerId, sellerTotal] of Object.entries(revenueBySupplier)) {
       await Transaction.create({
-        user: req.user.id,
-        type: 'expense',
-        category: 'stock_purchase',
-        amount: totalAmount,
+        user: sellerId,
+        type: 'income',
+        category: 'sales_revenue',
+        amount: Math.abs(sellerTotal),
         description: `Order #${order.orderNumber}`,
         relatedOrder: order._id,
         paymentMethod: txnPaymentMethod,
         status: 'completed'
       });
-    } catch (txnError) {
-      // Log but don't fail the order if transaction logging fails
-      console.error('Transaction creation warning:', txnError.message);
     }
-    
+    await Transaction.create({
+      user: req.user.id,
+      type: 'expense',
+      category: 'stock_purchase',
+      amount: Math.abs(totalAmount),
+      description: `Order #${order.orderNumber}`,
+      relatedOrder: order._id,
+      paymentMethod: txnPaymentMethod,
+      status: 'completed'
+    });
+
     res.status(201).json({
       success: true,
       message: 'Order created successfully',

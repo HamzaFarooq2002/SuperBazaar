@@ -30,6 +30,7 @@ import {
   Expenses,
   TransactionsList,
   TransactionDetails,
+  MerchantProducts,
 } from './features/merchant/pages';
 
 // Supplier feature screens
@@ -37,8 +38,6 @@ import { SupplierDashboard, SupplierProducts, SupplierOrders } from './features/
 
 // Credit feature screens
 import {
-  BNPLApplication,
-  BNPLApproved,
   CreditScoreInitiate,
   CreditScoreGenerating,
   CreditScoreResult,
@@ -100,8 +99,6 @@ export type Screen =
   | 'payments'
   | 'payments-main'
   | 'snpl-details'
-  | 'bnpl-application'
-  | 'bnpl-approved'
   | 'marketplace'
   | 'product-detail'
   | 'shopping-cart'
@@ -120,7 +117,8 @@ export type Screen =
   | 'customer-dashboard'
   | 'customer-marketplace'
   | 'nano-loan'
-  | 'rewards';
+  | 'rewards'
+  | 'merchant-products';
 
 export interface AppContextType {
   navigateTo: (screen: Screen) => void;
@@ -223,10 +221,6 @@ export default function App() {
         return <PaymentsMain key="payments-main" />;
       case 'snpl-details':
         return <SNPLDetails key="snpl-details" />;
-      case 'bnpl-application':
-        return <BNPLApplication key="bnpl-application" />;
-      case 'bnpl-approved':
-        return <BNPLApproved key="bnpl-approved" />;
       case 'marketplace':
         return <Marketplace key="marketplace" />;
       case 'product-detail':
@@ -265,6 +259,8 @@ export default function App() {
         return <NanoLoan key="nano-loan" />;
       case 'rewards':
         return <Rewards key="rewards" />;
+      case 'merchant-products':
+        return <MerchantProducts key="merchant-products" />;
       default:
         return <SplashScreen key="splash" />;
     }

@@ -173,9 +173,6 @@ export function OrderTracking() {
               </div>
             )}
 
-            <button className="w-full mt-4 py-3 rounded-xl bg-[#3D8A75] text-white hover:bg-[#2d6a5c] transition-colors">
-              View Details
-            </button>
           </motion.div>
         ))}
 

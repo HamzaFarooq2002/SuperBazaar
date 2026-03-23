@@ -1,5 +1,3 @@
-export { BNPLApplication } from '../../../components/BNPLApplication';
-export { BNPLApproved } from '../../../components/BNPLApproved';
 export { CreditScoreInitiate } from '../../../components/CreditScoreInitiate';
 export { CreditScoreGenerating } from '../../../components/CreditScoreGenerating';
 export { CreditScoreResult } from '../../../components/CreditScoreResult';

@@ -25,70 +25,32 @@ export function Analytics() {
   useEffect(() => {
     const loadAnalytics = async () => {
       try {
-        // Fetch transactions to build analytics
-        const txnResponse = await api.users.getTransactions();
-        if (txnResponse.success) {
-          const transactions = txnResponse.data?.transactions || txnResponse.data || [];
-          
-          // Calculate totals
-          let income = 0;
-          let expenses = 0;
-          const monthlyData: Record<string, { income: number; expense: number }> = {};
-          const categoryMap: Record<string, number> = {};
+        const periodMap: Record<'week' | 'month' | 'year', string> = {
+          week: '7days',
+          month: '30days',
+          year: '90days'
+        };
+        const response = await api.dashboard.getAnalytics({ period: periodMap[timeframe] });
+        if (response.success) {
+          const chartData = response.data?.chartData || [];
+          const totals = response.data?.totals || { income: 0, expenses: 0 };
+          const categoryBreakdown = response.data?.categoryBreakdown || {};
 
-          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          setRevenueData(chartData.map((item: any) => ({
+            name: item.date,
+            income: item.income || 0,
+            expense: item.expenses || 0
+          })));
+          setTotalIncome(totals.income || 0);
+          setTotalExpenses(totals.expenses || 0);
 
-          transactions.forEach((txn: any) => {
-            const amount = txn.amount || 0;
-            const date = new Date(txn.transactionDate || txn.createdAt);
-            const monthKey = monthNames[date.getMonth()];
-
-            if (!monthlyData[monthKey]) {
-              monthlyData[monthKey] = { income: 0, expense: 0 };
-            }
-
-            if (txn.type === 'income' || txn.type === 'sale' || txn.type === 'loan_disbursement') {
-              income += amount;
-              monthlyData[monthKey].income += amount;
-            } else if (txn.type === 'expense' || txn.type === 'purchase' || txn.type === 'loan_repayment') {
-              expenses += amount;
-              monthlyData[monthKey].expense += amount;
-              // Track categories
-              const cat = txn.category || 'Other';
-              categoryMap[cat] = (categoryMap[cat] || 0) + amount;
-            }
-          });
-
-          setTotalIncome(income);
-          setTotalExpenses(expenses);
-
-          // Convert monthly data to chart format
-          const chartData = Object.entries(monthlyData).map(([name, data]) => ({
-            name,
-            income: data.income,
-            expense: data.expense
-          }));
-          setRevenueData(chartData.length > 0 ? chartData : []);
-
-          // Convert category data to pie chart format
           const colors = ['#3D8A75', '#102542', '#CDD7D6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-          const catData = Object.entries(categoryMap).map(([name, value], i) => ({
+          const catData = Object.entries(categoryBreakdown).map(([name, value], i) => ({
             name: name.charAt(0).toUpperCase() + name.slice(1),
-            value: Math.round(value),
+            value: Number(value) || 0,
             color: colors[i % colors.length]
           }));
           setCategoryData(catData);
-        }
-
-        // Also try dashboard API for additional data
-        try {
-          const dashResponse = await api.dashboard.getStats();
-          if (dashResponse.success && dashResponse.data) {
-            if (dashResponse.data.totalRevenue) setTotalIncome(prev => prev || dashResponse.data.totalRevenue);
-            if (dashResponse.data.totalExpenses) setTotalExpenses(prev => prev || dashResponse.data.totalExpenses);
-          }
-        } catch {
-          // Dashboard API is optional
         }
       } catch (error) {
         console.error('Failed to load analytics:', error);
@@ -97,7 +59,7 @@ export function Analytics() {
       }
     };
     loadAnalytics();
-  }, []);
+  }, [timeframe]);
 
   if (loading) {
     return (
