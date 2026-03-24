@@ -356,6 +356,15 @@ const creditAPI = {
     }
   },
 
+  generateCreditScore: async () => {
+    try {
+      const response = await axiosInstance.post('/credit/score', {});
+      return handleResponse(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
   /**
    * Apply for SNPL (Stock Now Pay Later) - Merchants only
    * @param {number} requestedAmount - Amount requested

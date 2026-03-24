@@ -1,118 +1,301 @@
-// Mock credit scoring algorithm for MVP
-// In production, this would integrate with real credit bureaus and banking data
+// utils/creditScoring.js
+// Calls FastAPI ML pipeline at localhost:8000 for real credit scoring.
+// Replaces the old mock algorithm entirely.
 
-const calculateCreditScore = (user, transactionHistory = []) => {
-  let score = 500; // Base score
-  
-  const factors = {
-    paymentHistory: 0,
-    creditUtilization: 0,
-    accountAge: 0,
-    transactionVolume: 0
-  };
-  
-  // Factor 1: KYC Completion (35%)
-  if (user.kycStatus === 'verified') {
-    score += 100;
-    factors.paymentHistory = 35;
-  } else if (user.kycStatus === 'submitted') {
-    score += 50;
-    factors.paymentHistory = 17.5;
-  }
-  
-  // Factor 2: Account Age (15%)
-  const accountAgeMonths = Math.floor(
-    (Date.now() - new Date(user.createdAt)) / (1000 * 60 * 60 * 24 * 30)
-  );
-  if (accountAgeMonths >= 6) {
-    score += 50;
-    factors.accountAge = 15;
-  } else if (accountAgeMonths >= 3) {
-    score += 30;
-    factors.accountAge = 9;
-  } else if (accountAgeMonths >= 1) {
-    score += 15;
-    factors.accountAge = 4.5;
-  }
-  
-  // Factor 3: Transaction Volume (25%)
-  if (transactionHistory.length > 0) {
-    const totalVolume = transactionHistory.reduce((sum, txn) => sum + txn.amount, 0);
-    if (totalVolume > 500000) {
-      score += 100;
-      factors.transactionVolume = 25;
-    } else if (totalVolume > 200000) {
-      score += 75;
-      factors.transactionVolume = 18.75;
-    } else if (totalVolume > 100000) {
-      score += 50;
-      factors.transactionVolume = 12.5;
-    } else if (totalVolume > 50000) {
-      score += 25;
-      factors.transactionVolume = 6.25;
+const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
+
+// ─── Feature builders ────────────────────────────────────────────────────────
+
+/**
+ * Build the 24 merchant features from MongoDB data.
+ * @param {Object} user         - User document
+ * @param {Array}  transactions - Completed Transaction documents
+ * @param {Array}  creditLines  - CreditLine documents for this user
+ * @param {Object} store        - Store document (or null)
+ */
+const buildMerchantFeatures = (user, transactions = [], creditLines = [], store = null) => {
+  const kyc = user.kycData || {};
+
+  // ── KYC / identity flags ──────────────────────────────────────
+  const fingerprint_verified   = kyc.fingerprintVerified ? 1 : 0;
+  const bank_iban_present      = kyc.bankIBAN ? 1 : 0;
+  const cnic_present           = kyc.cnic ? 1 : 0;
+  const ntn_present            = kyc.ntn ? 1 : 0;
+  const document_count         = (kyc.documents || []).length;
+  const is_phone_verified      = user.isPhoneVerified ? 1 : 0;
+  const store_verified         = store?.isVerified ? 1 : 0;
+
+  // ── Activity ──────────────────────────────────────────────────
+  const lastLogin              = user.lastLogin ? new Date(user.lastLogin) : new Date(user.createdAt);
+  const last_login_days_ago    = Math.floor((Date.now() - lastLogin) / (1000 * 60 * 60 * 24));
+
+  // ── Financial — derived from completed transactions ───────────
+  const completed = transactions.filter(t => t.status === 'completed');
+
+  // Sum income (sales) vs expenses (purchases/repayments) over last 30 days
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const recent = completed.filter(t => new Date(t.createdAt) >= thirtyDaysAgo);
+
+  const monthly_income_pkr     = recent
+    .filter(t => ['sale', 'loan_disbursement'].includes(t.type))
+    .reduce((s, t) => s + (t.amount || 0), 0);
+
+  const monthly_expenses_pkr   = recent
+    .filter(t => ['purchase', 'loan_repayment'].includes(t.type))
+    .reduce((s, t) => s + (t.amount || 0), 0);
+
+  const net_profit_monthly_pkr = monthly_income_pkr - monthly_expenses_pkr;
+  const income_expense_ratio   = monthly_expenses_pkr > 0
+    ? parseFloat((monthly_income_pkr / monthly_expenses_pkr).toFixed(4))
+    : 1.0;
+
+  // Cashflow volatility — std dev of monthly transaction amounts
+  const amounts = completed.map(t => t.amount || 0);
+  const mean    = amounts.length ? amounts.reduce((s, v) => s + v, 0) / amounts.length : 0;
+  const variance = amounts.length
+    ? amounts.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / amounts.length
+    : 0;
+  const cashflow_volatility_pkr = parseFloat(Math.sqrt(variance).toFixed(2));
+
+  // ── Order metrics (from transactions tagged as orders) ────────
+  const orderTxns              = completed.filter(t => t.type === 'order' || t.category === 'order');
+  const totalOrders            = orderTxns.length || 1; // avoid div/0
+  const avg_order_value_pkr    = orderTxns.length
+    ? parseFloat((orderTxns.reduce((s, t) => s + (t.amount || 0), 0) / orderTxns.length).toFixed(2))
+    : 0;
+
+  const cancelledOrders        = transactions.filter(t => t.status === 'cancelled').length;
+  const cancel_rate            = parseFloat((cancelledOrders / totalOrders).toFixed(4));
+
+  const creditOrderTxns        = orderTxns.filter(t => t.paymentMethod === 'credit').length;
+  const credit_purchase_share  = parseFloat((creditOrderTxns / totalOrders).toFixed(4));
+
+  const failedPayments         = transactions.filter(t => t.status === 'failed').length;
+  const payment_failure_rate   = parseFloat((failedPayments / (totalOrders)).toFixed(4));
+
+  // ── Credit line metrics ───────────────────────────────────────
+  const activeCreditLines      = creditLines.filter(cl => ['approved', 'active'].includes(cl.status));
+  const totalLimit             = activeCreditLines.reduce((s, cl) => s + (cl.creditLimit || 0), 0);
+  const totalUsed              = activeCreditLines.reduce((s, cl) => s + (cl.usedCredit || 0), 0);
+  const credit_utilization     = totalLimit > 0
+    ? parseFloat((totalUsed / totalLimit).toFixed(4))
+    : 0;
+  const credit_limit_pkr       = totalLimit;
+  const num_credit_lines_opened = creditLines.length;
+
+  // Overdue installments across all credit lines
+  const overdue_installments   = creditLines.reduce((sum, cl) => {
+    return sum + (cl.installments || []).filter(i => i.status === 'overdue').length;
+  }, 0);
+
+  // Average repayment timeliness (days late — negative = early)
+  const repaymentDays = [];
+  for (const cl of creditLines) {
+    for (const inst of (cl.installments || [])) {
+      if (inst.status === 'paid' && inst.paidDate && inst.dueDate) {
+        const daysLate = Math.floor(
+          (new Date(inst.paidDate) - new Date(inst.dueDate)) / (1000 * 60 * 60 * 24)
+        );
+        repaymentDays.push(daysLate);
+      }
     }
   }
-  
-  // Factor 4: Credit Utilization (25%) - For existing credit lines
-  // This would be calculated based on existing loans
-  if (user.creditScore && user.creditScore.score) {
-    // Maintain some continuity with previous score
-    const previousScore = user.creditScore.score;
-    score = Math.floor((score + previousScore) / 2);
-  }
-  
-  // Ensure score is within valid range
-  score = Math.max(300, Math.min(850, score));
-  
+  const repayment_timeliness_avg_days = repaymentDays.length
+    ? parseFloat((repaymentDays.reduce((s, d) => s + d, 0) / repaymentDays.length).toFixed(2))
+    : 0;
+
+  // ── Store metrics ─────────────────────────────────────────────
+  const low_stock_products     = store?.products
+    ? store.products.filter(p => (p.stock || 0) < 5).length
+    : 0;
+
+  const wallet_balance_pkr     = user.walletBalance || 0;
+
   return {
-    score,
-    lastCalculated: new Date(),
-    factors
+    fingerprint_verified,
+    bank_iban_present,
+    cnic_present,
+    ntn_present,
+    document_count,
+    last_login_days_ago,
+    monthly_income_pkr,
+    monthly_expenses_pkr,
+    net_profit_monthly_pkr,
+    income_expense_ratio,
+    cashflow_volatility_pkr,
+    avg_order_value_pkr,
+    cancel_rate,
+    credit_purchase_share,
+    payment_failure_rate,
+    credit_utilization,
+    credit_limit_pkr,
+    num_credit_lines_opened,
+    overdue_installments,
+    repayment_timeliness_avg_days,
+    store_verified,
+    low_stock_products,
+    wallet_balance_pkr,
+    is_phone_verified
   };
 };
 
-// Calculate credit limit based on credit score and business metrics
-const calculateCreditLimit = (creditScore, monthlyRevenue = 0) => {
-  let limit = 0;
-  
-  // Base limit based on credit score
-  if (creditScore >= 750) {
-    limit = 500000; // Excellent
-  } else if (creditScore >= 700) {
-    limit = 350000; // Good
-  } else if (creditScore >= 650) {
-    limit = 200000; // Fair
-  } else if (creditScore >= 600) {
-    limit = 100000; // Average
+/**
+ * Build the 14 customer features from MongoDB data.
+ * @param {Object} user        - User document
+ * @param {Array}  creditLines - CreditLine documents for this user
+ */
+const buildCustomerFeatures = (user, creditLines = []) => {
+  const kyc = user.kycData || {};
+
+  // ── KYC / identity flags ──────────────────────────────────────
+  const fingerprint_verified        = kyc.fingerprintVerified ? 1 : 0;
+  const bank_iban_present           = kyc.bankIBAN ? 1 : 0;
+  const cnic_present                = kyc.cnic ? 1 : 0;
+  const is_phone_verified           = user.isPhoneVerified ? 1 : 0;
+  const is_email_verified           = user.isEmailVerified ? 1 : 0;
+  const document_count              = (kyc.documents || []).length;
+
+  // ── BNPL credit line metrics ──────────────────────────────────
+  const bnplLines                   = creditLines.filter(cl => cl.type === 'bnpl');
+  const activebnpl                  = bnplLines.filter(cl => ['approved', 'active'].includes(cl.status));
+
+  const totalBnplLimit              = activebnpl.reduce((s, cl) => s + (cl.creditLimit || 0), 0);
+  const totalBnplUsed               = activebnpl.reduce((s, cl) => s + (cl.usedCredit || 0), 0);
+  const bnpl_utilization            = totalBnplLimit > 0
+    ? parseFloat((totalBnplUsed / totalBnplLimit).toFixed(4))
+    : 0;
+
+  const num_bnpl_lines_opened       = bnplLines.length;
+  const bnpl_lines_closed           = bnplLines.filter(cl => cl.status === 'closed').length;
+
+  // Overdue installments
+  const overdue_installments        = bnplLines.reduce((sum, cl) => {
+    return sum + (cl.installments || []).filter(i => i.status === 'overdue').length;
+  }, 0);
+
+  // Average repayment timeliness
+  const repaymentDays = [];
+  for (const cl of bnplLines) {
+    for (const inst of (cl.installments || [])) {
+      if (inst.status === 'paid' && inst.paidDate && inst.dueDate) {
+        const daysLate = Math.floor(
+          (new Date(inst.paidDate) - new Date(inst.dueDate)) / (1000 * 60 * 60 * 24)
+        );
+        repaymentDays.push(daysLate);
+      }
+    }
+  }
+  const repayment_timeliness_avg_days = repaymentDays.length
+    ? parseFloat((repaymentDays.reduce((s, d) => s + d, 0) / repaymentDays.length).toFixed(2))
+    : 0;
+
+  // Repayment completion rate — paid installments / total installments
+  const allInstallments             = bnplLines.flatMap(cl => cl.installments || []);
+  const paidInstallments            = allInstallments.filter(i => i.status === 'paid').length;
+  const repayment_completion_rate   = allInstallments.length
+    ? parseFloat((paidInstallments / allInstallments.length).toFixed(4))
+    : 1.0; // no history = assume clean
+
+  // ── Wallet & rewards ──────────────────────────────────────────
+  const wallet_balance_pkr          = user.walletBalance || 0;
+  const reward_points               = user.rewardPoints || 0;
+
+  return {
+    fingerprint_verified,
+    bank_iban_present,
+    cnic_present,
+    is_phone_verified,
+    is_email_verified,
+    document_count,
+    bnpl_utilization,
+    num_bnpl_lines_opened,
+    bnpl_lines_closed,
+    overdue_installments,
+    repayment_timeliness_avg_days,
+    repayment_completion_rate,
+    wallet_balance_pkr,
+    reward_points
+  };
+};
+
+// ─── Main scoring function ───────────────────────────────────────────────────
+
+/**
+ * Score a user by calling FastAPI.
+ * Returns { score, band, defaultProbability, lastCalculated }
+ *
+ * @param {Object} user         - User Mongoose document
+ * @param {Array}  transactions - Completed Transaction documents
+ * @param {Array}  creditLines  - CreditLine documents
+ * @param {Object} store        - Store document (merchants only, or null)
+ */
+const scoreUser = async (user, transactions = [], creditLines = [], store = null) => {
+  let endpoint;
+  let features;
+
+  if (user.userType === 'merchant' || user.userType === 'supplier') {
+    endpoint = `${FASTAPI_URL}/score/merchant`;
+    features = buildMerchantFeatures(user, transactions, creditLines, store);
+  } else if (user.userType === 'customer') {
+    endpoint = `${FASTAPI_URL}/score/customer`;
+    features = buildCustomerFeatures(user, creditLines);
   } else {
-    limit = 50000;  // Poor
+    throw new Error(`Unsupported userType for credit scoring: ${user.userType}`);
   }
-  
-  // Adjust based on monthly revenue (if available)
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(features)
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`FastAPI scoring failed [${response.status}]: ${err}`);
+  }
+
+  const result = await response.json();
+
+  return {
+    score:              result.score,
+    band:               result.band,
+    defaultProbability: result.default_probability,
+    lastCalculated:     new Date(),
+    factors: {
+      paymentHistory:     0,
+      creditUtilization:  features.credit_utilization ?? features.bnpl_utilization ?? 0,
+      accountAge:         0,
+      transactionVolume:  features.monthly_income_pkr ?? 0
+    }
+  };
+};
+
+// ─── Credit limit helper (kept for use in approval flow) ─────────────────────
+
+const calculateCreditLimit = (score, monthlyRevenue = 0) => {
+  let limit = 0;
+  if      (score >= 750) limit = 500000;
+  else if (score >= 700) limit = 350000;
+  else if (score >= 650) limit = 200000;
+  else if (score >= 600) limit = 100000;
+  else                   limit = 50000;
+
   if (monthlyRevenue > 0) {
-    const revenueBasedLimit = monthlyRevenue * 2; // 2x monthly revenue
-    limit = Math.max(limit, revenueBasedLimit);
+    limit = Math.max(limit, monthlyRevenue * 2);
   }
-  
-  // Cap at maximum limit for MVP
   return Math.min(limit, 500000);
 };
 
-// Assess risk level for loan application
-const assessRiskLevel = (creditScore, loanAmount, creditLimit) => {
-  const utilizationRatio = loanAmount / creditLimit;
-  
-  if (creditScore >= 700 && utilizationRatio <= 0.5) {
-    return 'low';
-  } else if (creditScore >= 650 && utilizationRatio <= 0.7) {
-    return 'medium';
-  } else {
-    return 'high';
-  }
+// ─── Risk level helper (kept for CreditLine.riskLevel) ───────────────────────
+
+const assessRiskLevel = (band) => {
+  if (band === 'Excellent' || band === 'Good') return 'low';
+  if (band === 'Fair')                         return 'medium';
+  return 'high';
 };
 
 module.exports = {
-  calculateCreditScore,
+  scoreUser,
   calculateCreditLimit,
   assessRiskLevel
 };

@@ -1,10 +1,12 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { Shield, Check } from 'lucide-react';
+import api from '../services/api';
 
 export function CreditScoreGenerating() {
   const { navigateTo } = useContext(AppContext);
+  const hasCalledAPI = useRef(false);
 
   const steps = [
     { label: 'Verifying identity', delay: 0 },
@@ -15,12 +17,28 @@ export function CreditScoreGenerating() {
   ];
 
   useEffect(() => {
-    // Auto-navigate to results after 5.5 seconds
-    const timer = setTimeout(() => {
-      navigateTo('credit-score-result');
-    }, 5500);
+    if (hasCalledAPI.current) return;
+    hasCalledAPI.current = true;
 
-    return () => clearTimeout(timer);
+    const startTime = Date.now();
+
+    const runScoring = async () => {
+      try {
+        const response = await api.credit.generateCreditScore();
+        if (response.success && response.data) {
+          sessionStorage.setItem('creditScoreData', JSON.stringify(response.data));
+        }
+      } catch (err) {
+        console.error('Credit scoring failed:', err);
+        sessionStorage.removeItem('creditScoreData');
+      } finally {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 5500 - elapsed);
+        setTimeout(() => navigateTo('credit-score-result'), remaining);
+      }
+    };
+
+    runScoring();
   }, [navigateTo]);
 
   return (

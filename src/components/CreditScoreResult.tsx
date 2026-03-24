@@ -23,13 +23,24 @@ export function CreditScoreResult() {
   const loadCreditScore = async () => {
     setError('');
     try {
+      const cached = sessionStorage.getItem('creditScoreData');
+      if (cached) {
+        setCreditData(JSON.parse(cached));
+        sessionStorage.removeItem('creditScoreData');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
       const response = await api.credit.getCreditScore();
-      if (response.success) {
+      if (response.success && response.data) {
         setCreditData(response.data);
+      } else {
+        setError('No credit score found. Please generate one first.');
       }
     } catch (err: any) {
       console.error('Failed to load credit score:', err);
-      setError(err?.error?.message || 'Failed to calculate credit score');
+      setError(err?.error?.message || 'Failed to load credit score');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -40,9 +51,19 @@ export function CreditScoreResult() {
     loadCreditScore();
   }, []);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    loadCreditScore();
+    setError('');
+    try {
+      const response = await api.credit.generateCreditScore();
+      if (response.success && response.data) {
+        setCreditData(response.data);
+      }
+    } catch (err: any) {
+      setError('Failed to refresh score. Is the scoring service running?');
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   if (loading) {

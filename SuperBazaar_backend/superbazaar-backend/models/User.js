@@ -67,20 +67,32 @@ const userSchema = new mongoose.Schema({
   businessType: String,
   
   // Credit Score
-  creditScore: {
-    score: {
-      type: Number,
-      min: 300,
-      max: 850
-    },
-    lastCalculated: Date,
-    factors: {
-      paymentHistory: Number,
-      creditUtilization: Number,
-      accountAge: Number,
-      transactionVolume: Number
-    }
+  // Credit Score
+creditScore: {
+  score: {
+    type: Number,
+    min: 300,
+    max: 850
   },
+  band: {
+    type: String,
+    enum: ['Excellent', 'Good', 'Fair', 'Poor', 'Very Poor'],
+    default: null
+  },
+  defaultProbability: {
+    type: Number,
+    min: 0,
+    max: 1,
+    default: null
+  },
+  lastCalculated: Date,
+  factors: {
+    paymentHistory: Number,
+    creditUtilization: Number,
+    accountAge: Number,
+    transactionVolume: Number
+  }
+},
   
   // Wallet
   walletBalance: {

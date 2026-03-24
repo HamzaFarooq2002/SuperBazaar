@@ -1,8 +1,7 @@
 const CreditLine = require('../models/CreditLine');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-const { calculateCreditScore, calculateCreditLimit, assessRiskLevel } = require('../utils/creditScoring');
-
+const { scoreUser, calculateCreditLimit, assessRiskLevel } = require('../utils/creditScoring');
 // @desc    Get user's credit lines
 // @route   GET /api/credit
 // @access  Private
@@ -24,41 +23,47 @@ const getCreditLines = async (req, res) => {
   }
 };
 
-// @desc    Get credit score
+// @desc    Get credit score (reads persisted score from DB — use POST to re-score)
 // @route   GET /api/credit/score
 // @access  Private
 const getCreditScore = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    
-    // Get transaction history for scoring
-    const transactions = await Transaction.find({ 
-      user: req.user.id,
-      status: 'completed'
-    });
-    
-    // Calculate credit score
-    const creditScore = calculateCreditScore(user, transactions);
-    
-    // Update user's credit score
-    user.creditScore = creditScore;
-    await user.save();
-    
-    // Calculate suggested credit limit
-    const suggestedLimit = calculateCreditLimit(creditScore.score, 0);
-    
-    res.status(200).json({
+    const user = await User.findById(req.user.id)
+      .select('creditScore userType walletBalance');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (!user.creditScore || !user.creditScore.score) {
+      return res.status(200).json({
+        success: true,
+        data: null,
+        message: 'No credit score yet. Please generate one first.'
+      });
+    }
+
+    const monthlyIncome = user.creditScore.factors?.transactionVolume || 0;
+    const suggestedLimit = calculateCreditLimit(user.creditScore.score, monthlyIncome);
+
+    return res.status(200).json({
       success: true,
       data: {
-        creditScore,
+        creditScore: {
+          score:              user.creditScore.score,
+          band:               user.creditScore.band,
+          defaultProbability: user.creditScore.defaultProbability,
+          lastCalculated:     user.creditScore.lastCalculated,
+          factors:            user.creditScore.factors
+        },
         suggestedCreditLimit: suggestedLimit
       }
     });
   } catch (error) {
-    console.error('Get credit score error:', error);
-    res.status(500).json({
+    console.error('getCreditScore error:', error.message);
+    return res.status(500).json({
       success: false,
-      message: 'Error calculating credit score',
+      message: 'Error fetching credit score',
       error: error.message
     });
   }
@@ -93,22 +98,29 @@ const applySNPL = async (req, res) => {
       });
     }
     
-    // Calculate credit score if not already done
-    let creditScore = req.user.creditScore?.score;
-    if (!creditScore) {
-      const transactions = await Transaction.find({ 
-        user: req.user.id,
-        status: 'completed'
-      });
-      const scoreData = calculateCreditScore(req.user, transactions);
-      creditScore = scoreData.score;
-      
-      req.user.creditScore = scoreData;
-      await req.user.save();
-    }
-    
-    // Calculate credit limit
-    const creditLimit = calculateCreditLimit(creditScore, 0);
+  // Always re-score via ML pipeline on application
+const transactions = await Transaction.find({
+  user: req.user.id,
+  status: 'completed'
+});
+const creditLines = await CreditLine.find({ user: req.user.id });
+const Store = require('../models/Store');
+const store = await Store.findOne({ owner: req.user.id });
+
+const scoreData = await scoreUser(req.user, transactions, creditLines, store);
+const creditScore = scoreData.score;
+
+req.user.creditScore = {
+  score:              scoreData.score,
+  band:               scoreData.band,
+  defaultProbability: scoreData.defaultProbability,
+  lastCalculated:     scoreData.lastCalculated,
+  factors:            scoreData.factors
+};
+await req.user.save();
+
+// Calculate credit limit
+const creditLimit = calculateCreditLimit(creditScore, scoreData.factors?.transactionVolume || 0);
     
     // Check if requested amount is within limit
     if (requestedAmount > creditLimit) {
@@ -118,8 +130,7 @@ const applySNPL = async (req, res) => {
       });
     }
     
-    // Assess risk
-    const riskLevel = assessRiskLevel(creditScore, requestedAmount, creditLimit);
+    const riskLevel = assessRiskLevel(scoreData.band);
     
     // Create SNPL credit line
     const snpl = new CreditLine({

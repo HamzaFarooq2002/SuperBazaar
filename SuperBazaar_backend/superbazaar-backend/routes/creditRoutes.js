@@ -7,13 +7,15 @@ const {
   applySNPL,
   makePayment
 } = require('../controllers/creditController');
+const { scoreCreditML } = require('../controllers/creditScoreController');
 
 // All credit routes require authentication
 router.use(protect);
 
-router.get('/', getCreditLines);
-router.get('/score', getCreditScore);
+router.get('/',                                    getCreditLines);
+router.get('/score',                               getCreditScore);
+router.post('/score',                              scoreCreditML);
 router.post('/snpl/apply', restrictTo('merchant'), applySNPL);
-router.post('/:creditLineId/payment', makePayment);
+router.post('/:creditLineId/payment',              makePayment);
 
 module.exports = router;
