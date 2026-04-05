@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Cart - SuperBazaar</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 500px;
+        }
+        h1 { color: #333; margin-bottom: 20px; }
+        .btn {
+            background: #3D8A75;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            background: #2d6a5c;
+            transform: scale(1.05);
+        }
+        .success {
+            background: #10b981;
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            margin-top: 20px;
+            display: none;
+        }
+        .info {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 14px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛒 Clear Cart Data</h1>
+        
+        <div class="info">
+            <strong>Why clear cart?</strong><br>
+            Your cart contains items with OLD product IDs from before the fix.<br>
+            Clearing will remove invalid data.
+        </div>
+
+        <button class="btn" onclick="clearCart()">Clear Cart Data</button>
+        <button class="btn" onclick="viewCart()">View Current Cart</button>
+        
+        <div id="success" class="success">
+            ✅ Cart cleared successfully!<br>
+            You can close this tab now.
+        </div>
+
+        <div id="cartData" style="margin-top: 20px; font-size: 14px; text-align: left;"></div>
+    </div>
+
+    <script>
+        function clearCart() {
+            localStorage.removeItem('cart');
+            document.getElementById('success').style.display = 'block';
+            document.getElementById('cartData').innerHTML = '<strong>Cart is now empty ✓</strong>';
+            console.log('Cart cleared from localStorage');
+        }
+
+        function viewCart() {
+            const cart = localStorage.getItem('cart');
+            const cartDiv = document.getElementById('cartData');
+            
+            if (!cart) {
+                cartDiv.innerHTML = '<strong>Cart is empty</strong>';
+                return;
+            }
+
+            try {
+                const items = JSON.parse(cart);
+                cartDiv.innerHTML = '<strong>Current Cart Items:</strong><br>' + 
+                    '<pre style="background: #f9fafb; padding: 10px; border-radius: 5px; overflow: auto; max-height: 200px;">' + 
+                    JSON.stringify(items, null, 2) + 
+                    '</pre>';
+            } catch (e) {
+                cartDiv.innerHTML = '<strong style="color: red;">Error parsing cart data</strong>';
+            }
+        }
+
+        // Auto-display current cart on load
+        viewCart();
+    </script>
+</body>
+</html>
