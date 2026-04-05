@@ -3,6 +3,7 @@
 // Replaces the old mock algorithm entirely.
 
 const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
+const ALLOW_SCORING_FALLBACK = process.env.ALLOW_SCORING_FALLBACK !== 'false';
 
 // ─── Feature builders ────────────────────────────────────────────────────────
 
@@ -218,6 +219,87 @@ const buildCustomerFeatures = (user, creditLines = []) => {
   };
 };
 
+const scoreBandFromScore = (score) => {
+  if (score >= 750) return 'Excellent';
+  if (score >= 700) return 'Good';
+  if (score >= 650) return 'Fair';
+  return 'Poor';
+};
+
+const fallbackScoreUser = (features, user = null) => {
+  let score = 600;
+
+  const docSignals = [
+    features.fingerprint_verified,
+    features.bank_iban_present,
+    features.cnic_present,
+    features.ntn_present,
+    features.is_phone_verified,
+    features.is_email_verified,
+    features.store_verified
+  ].filter((v) => v === 1).length;
+
+  score += docSignals * 18;
+
+  if (typeof features.overdue_installments === 'number') {
+    score -= Math.min(features.overdue_installments * 22, 120);
+  }
+
+  if (typeof features.payment_failure_rate === 'number') {
+    score -= Math.round(features.payment_failure_rate * 180);
+  }
+
+  if (typeof features.credit_utilization === 'number') {
+    score -= Math.round(features.credit_utilization * 60);
+  }
+  if (typeof features.bnpl_utilization === 'number') {
+    score -= Math.round(features.bnpl_utilization * 50);
+  }
+
+  if (typeof features.repayment_completion_rate === 'number') {
+    score += Math.round(features.repayment_completion_rate * 40);
+  }
+
+  if (typeof features.repayment_timeliness_avg_days === 'number') {
+    if (features.repayment_timeliness_avg_days <= 0) {
+      score += 10;
+    } else {
+      score -= Math.min(Math.round(features.repayment_timeliness_avg_days * 2), 40);
+    }
+  }
+
+  if (typeof features.monthly_income_pkr === 'number') {
+    score += Math.min(Math.floor(features.monthly_income_pkr / 50000) * 8, 40);
+  }
+  if (typeof features.net_profit_monthly_pkr === 'number' && features.net_profit_monthly_pkr > 0) {
+    score += Math.min(Math.floor(features.net_profit_monthly_pkr / 50000) * 6, 30);
+  }
+
+  if (user?.openBanking?.enabled) {
+    score += 20;
+    if (user?.openBanking?.consents?.shareTransactions) {
+      score += 8;
+    }
+  }
+
+  score = Math.max(300, Math.min(850, Math.round(score)));
+  const band = scoreBandFromScore(score);
+
+  const defaultProbabilityByBand = {
+    Excellent: 0.02,
+    Good: 0.05,
+    Fair: 0.1,
+    Poor: 0.2
+  };
+
+  return {
+    score,
+    band,
+    defaultProbability: defaultProbabilityByBand[band],
+    lastCalculated: new Date()
+  };
+};
+
 // ─── Main scoring function ───────────────────────────────────────────────────
 
 /**
@@ -243,31 +325,49 @@ const scoreUser = async (user, transactions = [], creditLines = [], store = null
     throw new Error(`Unsupported userType for credit scoring: ${user.userType}`);
   }
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(features)
-  });
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(features)
+    });
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`FastAPI scoring failed [${response.status}]: ${err}`);
-  }
-
-  const result = await response.json();
-
-  return {
-    score:              result.score,
-    band:               result.band,
-    defaultProbability: result.default_probability,
-    lastCalculated:     new Date(),
-    factors: {
-      paymentHistory:     0,
-      creditUtilization:  features.credit_utilization ?? features.bnpl_utilization ?? 0,
-      accountAge:         0,
-      transactionVolume:  features.monthly_income_pkr ?? 0
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`FastAPI scoring failed [${response.status}]: ${err}`);
     }
-  };
+
+    const result = await response.json();
+
+    return {
+      score:              result.score,
+      band:               result.band,
+      defaultProbability: result.default_probability,
+      lastCalculated:     new Date(),
+      factors: {
+        paymentHistory:     0,
+        creditUtilization:  features.credit_utilization ?? features.bnpl_utilization ?? 0,
+        accountAge:         0,
+        transactionVolume:  features.monthly_income_pkr ?? 0
+      }
+    };
+  } catch (error) {
+    if (!ALLOW_SCORING_FALLBACK) {
+      throw error;
+    }
+
+    console.warn(`FastAPI scoring unavailable, using fallback scorer: ${error.message}`);
+    const fallback = fallbackScoreUser(features, user);
+    return {
+      ...fallback,
+      factors: {
+        paymentHistory: 0,
+        creditUtilization: features.credit_utilization ?? features.bnpl_utilization ?? 0,
+        accountAge: 0,
+        transactionVolume: features.monthly_income_pkr ?? 0
+      }
+    };
+  }
 };
 
 // ─── Credit limit helper (kept for use in approval flow) ─────────────────────

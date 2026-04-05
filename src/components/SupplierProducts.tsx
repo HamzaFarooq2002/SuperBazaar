@@ -17,6 +17,8 @@ import {
   ImagePlus,
   Eye,
   Store,
+  UploadCloud,
+  Loader2,
 } from 'lucide-react';
 
 const CATEGORIES = ['Groceries', 'Beverages', 'Snacks', 'Personal Care', 'Household', 'Other'] as const;
@@ -57,6 +59,9 @@ export function SupplierProducts() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageInfo, setImageInfo] = useState<{ name: string; sizeKb: number } | null>(null);
+  const [processingImage, setProcessingImage] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +91,7 @@ export function SupplierProducts() {
     setEditingId(null);
     setForm(emptyForm);
     setImagePreview(null);
+    setImageInfo(null);
     setError('');
     setShowForm(true);
   };
@@ -104,30 +110,83 @@ export function SupplierProducts() {
       mainImage: p.mainImage || '',
     });
     setImagePreview(p.mainImage || null);
+    setImageInfo(null);
     setError('');
     setShowForm(true);
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const fileToDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string) || '');
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
 
-    if (file.size > 2 * 1024 * 1024) {
-      setError('Image must be under 2 MB.');
-      return;
+  const compressImage = async (file: File): Promise<string> => {
+    const source = await fileToDataUrl(file);
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = source;
+    });
+
+    const maxDimension = 1280;
+    let { width, height } = img;
+    if (width > height && width > maxDimension) {
+      height = Math.round((height * maxDimension) / width);
+      width = maxDimension;
+    } else if (height >= width && height > maxDimension) {
+      width = Math.round((width * maxDimension) / height);
+      height = maxDimension;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return source;
+    ctx.drawImage(img, 0, 0, width, height);
+
+    return canvas.toDataURL('image/jpeg', 0.82);
+  };
+
+  const applyImageFile = async (file: File) => {
+    if (!file) return;
+    setError('');
+    setProcessingImage(true);
+    try {
+      if (!file.type.startsWith('image/')) {
+        setError('Please upload a valid image file.');
+        return;
+      }
+      if (file.size > 6 * 1024 * 1024) {
+        setError('Image must be under 6 MB before compression.');
+        return;
+      }
+
+      const base64 = await compressImage(file);
       setImagePreview(base64);
       setForm((prev) => ({ ...prev, mainImage: base64 }));
-    };
-    reader.readAsDataURL(file);
+      setImageInfo({ name: file.name, sizeKb: Math.round(file.size / 1024) });
+    } catch (err) {
+      console.error('Image processing failed', err);
+      setError('Could not process image. Try another file.');
+    } finally {
+      setProcessingImage(false);
+    }
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await applyImageFile(file);
   };
 
   const removeImage = () => {
     setImagePreview(null);
+    setImageInfo(null);
     setForm((prev) => ({ ...prev, mainImage: '' }));
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -266,7 +325,7 @@ export function SupplierProducts() {
                 <h3 className="text-[#102542] font-semibold text-base">
                   {editingId ? 'Edit Product' : 'New Product'}
                 </h3>
-                <button onClick={() => { setShowForm(false); setImagePreview(null); }}>
+                <button onClick={() => { setShowForm(false); setImagePreview(null); setImageInfo(null); }}>
                   <X className="w-5 h-5 text-gray-400" />
                 </button>
               </div>
@@ -312,12 +371,44 @@ export function SupplierProducts() {
                   ) : (
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full h-32 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-[#3D8A75]/40 hover:text-[#3D8A75] transition-colors"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragActive(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        setDragActive(false);
+                      }}
+                      onDrop={async (e) => {
+                        e.preventDefault();
+                        setDragActive(false);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) await applyImageFile(file);
+                      }}
+                      className={`w-full h-36 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors ${
+                        dragActive
+                          ? 'border-[#3D8A75] bg-[#3D8A75]/5 text-[#3D8A75]'
+                          : 'border-gray-200 text-gray-400 hover:border-[#3D8A75]/40 hover:text-[#3D8A75]'
+                      }`}
                     >
-                      <ImagePlus className="w-8 h-8" />
-                      <span className="text-xs font-medium">Tap to upload image</span>
-                      <span className="text-[10px] text-gray-300">PNG, JPG, WebP — max 2 MB</span>
+                      {processingImage ? (
+                        <>
+                          <Loader2 className="w-7 h-7 animate-spin" />
+                          <span className="text-xs font-medium">Optimizing image...</span>
+                        </>
+                      ) : (
+                        <>
+                          <UploadCloud className="w-8 h-8" />
+                          <span className="text-xs font-medium">Tap or drag image here</span>
+                          <span className="text-[10px] text-gray-300">PNG, JPG, WebP — up to 6 MB (auto-compressed)</span>
+                        </>
+                      )}
                     </button>
+                  )}
+                  {imageInfo && (
+                    <p className="text-[11px] text-gray-500 mt-2">
+                      Selected: {imageInfo.name} ({imageInfo.sizeKb} KB)
+                    </p>
                   )}
                 </div>
 

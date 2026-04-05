@@ -1,14 +1,10 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { ArrowLeft, Banknote, Shield, Lock, TrendingUp, CreditCard, CheckCircle } from 'lucide-react';
 
 export function OpenBankingJourney() {
   const { navigateTo } = useContext(AppContext);
-  const [shareBankData, setShareBankData] = useState(true);
-  const [shareTransactions, setShareTransactions] = useState(true);
-  const [shareCreditScore, setShareCreditScore] = useState(true);
-  const [showModal, setShowModal] = useState(false);
 
   const steps = [
     {
@@ -90,28 +86,6 @@ export function OpenBankingJourney() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100">
-          <h2 className="text-[18px] font-bold text-[#121417] mb-4">Your Open Banking settings</h2>
-          {[
-            { label: 'Share bank data', value: shareBankData, setter: setShareBankData },
-            { label: 'Share transaction history', value: shareTransactions, setter: setShareTransactions },
-            { label: 'Share credit score', value: shareCreditScore, setter: setShareCreditScore }
-          ].map((item) => (
-            <div key={item.label} className="flex items-center justify-between py-3 border-b last:border-b-0 border-gray-100">
-              <div>
-                <p className="text-[14px] font-medium text-[#121417]">{item.label}</p>
-                <p className="text-[12px] text-[#61758a]">Opt in to improve your funding offers.</p>
-              </div>
-              <button
-                onClick={() => item.setter(!item.value)}
-                className={`relative w-[48px] h-[28px] rounded-full transition-colors ${item.value ? 'bg-[#3D8A75]' : 'bg-gray-200'}`}
-              >
-                <span className={`absolute top-[3px] left-[3px] w-[22px] h-[22px] rounded-full bg-white transition-transform ${item.value ? 'translate-x-[20px]' : 'translate-x-0'}`} />
-              </button>
-            </div>
-          ))}
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100">
           <div className="flex items-start gap-4 mb-4">
             <div className="w-11 h-11 rounded-3xl bg-[#3D8A75]/10 flex items-center justify-center">
               <CheckCircle className="w-5 h-5 text-[#3D8A75]" />
@@ -128,37 +102,12 @@ export function OpenBankingJourney() {
         <motion.button
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          onClick={() => setShowModal(true)}
-          className="w-full h-[52px] rounded-[14px] bg-gradient-to-r from-[#102542] to-[#3D8A75] text-white text-[16px] font-semibold shadow-lg hover:opacity-95 transition-all"
+          onClick={() => navigateTo('open-banking-consent')}
+          className="w-full min-h-[64px] rounded-[18px] bg-gradient-to-r from-[#102542] to-[#3D8A75] text-white text-[17px] font-semibold shadow-xl hover:scale-[1.01] hover:opacity-95 transition-all px-5 py-4"
         >
           Start the Open Banking Journey
         </motion.button>
       </div>
-
-      {showModal && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-[rgba(0,0,0,0.35)] flex items-end justify-center px-4 pb-6">
-          <motion.div initial={{ y: 80 }} animate={{ y: 0 }} className="w-full max-w-xl bg-white rounded-[24px] overflow-hidden shadow-2xl">
-            <div className="px-6 py-5 border-b border-gray-200">
-              <h2 className="text-[18px] font-bold text-[#121417]">Authorize Open Banking</h2>
-              <p className="text-[13px] text-[#61758a] mt-2">Grant secure access to your business bank for a faster credit journey.</p>
-            </div>
-            <div className="px-6 py-5 space-y-4">
-              <button
-                onClick={() => { setShowModal(false); navigateTo('credit-score-generating'); }}
-                className="w-full h-[48px] rounded-[14px] bg-[#3D8A75] text-white text-[15px] font-semibold hover:bg-[#2d6b5c] transition-all"
-              >
-                Authorize and Continue
-              </button>
-              <button
-                onClick={() => setShowModal(false)}
-                className="w-full h-[48px] rounded-[14px] border border-gray-200 text-[#102542] text-[15px] font-semibold hover:bg-gray-50 transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
     </div>
   );
 }

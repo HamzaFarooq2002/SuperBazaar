@@ -18,6 +18,23 @@ export function BNPLApplication() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  if (user?.userType !== 'customer') {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center px-6">
+        <div className="text-center">
+          <p className="text-[#102542] mb-2">BNPL is available for customers only.</p>
+          <p className="text-gray-500 text-sm mb-4">Merchants can use SNPL and Nano Loans instead.</p>
+          <button
+            onClick={() => navigateTo(homeDashboard)}
+            className="px-4 py-2 rounded-lg bg-[#3D8A75] text-white"
+          >
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const handleApply = async () => {
     const purchaseAmount = parseInt(amount);
     if (!purchaseAmount || purchaseAmount <= 0) {

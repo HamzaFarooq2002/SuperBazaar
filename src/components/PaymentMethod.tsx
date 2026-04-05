@@ -8,6 +8,11 @@ import api from '../services/api';
 import { ArrowLeft, Wallet, Banknote, CreditCard, ChevronRight } from 'lucide-react';
 import { DELIVERY_FEE } from '../config/pricing';
 
+const SNPL_MIN_SCORE = 680;
+const BNPL_MIN_SCORE = 620;
+const SNPL_TENURE_MONTHS = 4;
+const SNPL_INTEREST_RATE = 0.05;
+
 export function PaymentMethod() {
   const { navigateTo } = useContext(AppContext);
   const { items, totalPrice, clearCart } = useCart();
@@ -27,8 +32,11 @@ export function PaymentMethod() {
   const isMerchant = user?.userType === 'merchant';
 
   const orderTotal = totalPrice + DELIVERY_FEE;
+  const snplTotalRepayable = Math.round(orderTotal * (1 + SNPL_INTEREST_RATE));
+  const snplInstallmentAmount = Math.ceil(snplTotalRepayable / SNPL_TENURE_MONTHS);
 
   const getOrCreateSNPLCreditLine = async (requiredAmount: number) => {
+    if (!isMerchant) return null;
     const existing = await api.credit.getCreditLines();
     if (existing.success) {
       const lines = existing.data?.creditLines || existing.data || [];
@@ -47,13 +55,34 @@ export function PaymentMethod() {
     return newLine?._id || null;
   };
 
+  const getOrCreateBNPLCreditLine = async (requiredAmount: number) => {
+    if (!isCustomer) return null;
+    const existing = await api.credit.getCreditLines();
+    if (existing.success) {
+      const lines = existing.data?.creditLines || existing.data || [];
+      const eligible = lines.find(
+        (line: any) =>
+          line.type === 'bnpl' &&
+          (line.status === 'approved' || line.status === 'active') &&
+          (line.availableCredit || 0) >= requiredAmount
+      );
+      if (eligible?._id) return eligible._id;
+    }
+
+    const created = await api.credit.applyBNPL({ purchaseAmount: requiredAmount });
+    if (!created.success) return null;
+    const newLine = created.data?.creditLine || created.data;
+    return newLine?._id || null;
+  };
+
   useEffect(() => {
     const checkSnplEligibility = async () => {
       setCheckingSnpl(true);
       try {
-        const [scoreResponse, creditLinesResponse] = await Promise.all([
+        const [scoreResponse, creditLinesResponse, txResponse] = await Promise.all([
           api.credit.getCreditScore(),
           api.credit.getCreditLines(),
+          api.users.getTransactions(),
         ]);
 
         const creditScore = scoreResponse?.data?.creditScore?.score ?? 0;
@@ -67,10 +96,24 @@ export function PaymentMethod() {
           0
         );
         const effectiveLimit = availableLimit > 0 ? availableLimit : suggestedLimit;
+        const completedTxns =
+          (txResponse?.data?.transactions || txResponse?.data || []).filter((t: any) => t.status === 'completed').length;
 
-        if (creditScore < 600) {
+        if (!isMerchant) {
           setSnplEligible(false);
-          setSnplReason('Credit score below threshold');
+          setSnplReason('SNPL is available for merchants only');
+        } else if (user?.kycStatus !== 'verified') {
+          setSnplEligible(false);
+          setSnplReason('Verified KYC is required');
+        } else if (completedTxns < 3) {
+          setSnplEligible(false);
+          setSnplReason('Build more transaction history');
+        } else if (creditScore <= 0) {
+          setSnplEligible(false);
+          setSnplReason('Generate your credit score first');
+        } else if (creditScore < SNPL_MIN_SCORE) {
+          setSnplEligible(false);
+          setSnplReason(`Minimum score ${SNPL_MIN_SCORE} required`);
         } else if (effectiveLimit < orderTotal) {
           setSnplEligible(false);
           setSnplReason('Insufficient credit limit');
@@ -97,9 +140,10 @@ export function PaymentMethod() {
     const checkBnplEligibility = async () => {
       setCheckingBnpl(true);
       try {
-        const [scoreResponse, creditLinesResponse] = await Promise.all([
+        const [scoreResponse, creditLinesResponse, txResponse] = await Promise.all([
           api.credit.getCreditScore(),
           api.credit.getCreditLines(),
+          api.users.getTransactions(),
         ]);
 
         const creditScore = scoreResponse?.data?.creditScore?.score ?? 0;
@@ -113,10 +157,24 @@ export function PaymentMethod() {
           0
         );
         const effectiveLimit = availableLimit > 0 ? availableLimit : suggestedLimit;
+        const completedTxns =
+          (txResponse?.data?.transactions || txResponse?.data || []).filter((t: any) => t.status === 'completed').length;
 
-        if (creditScore < 600) {
+        if (!isCustomer) {
           setBnplEligible(false);
-          setBnplReason('Credit score below threshold');
+          setBnplReason('BNPL is available for customers only');
+        } else if (user?.kycStatus !== 'verified') {
+          setBnplEligible(false);
+          setBnplReason('Verified KYC is required');
+        } else if (completedTxns < 3) {
+          setBnplEligible(false);
+          setBnplReason('Need at least 3 completed transactions');
+        } else if (creditScore <= 0) {
+          setBnplEligible(false);
+          setBnplReason('Generate your credit score first');
+        } else if (creditScore < BNPL_MIN_SCORE) {
+          setBnplEligible(false);
+          setBnplReason(`Minimum score ${BNPL_MIN_SCORE} required`);
         } else if (effectiveLimit < orderTotal) {
           setBnplEligible(false);
           setBnplReason('Insufficient credit limit');
@@ -170,6 +228,14 @@ export function PaymentMethod() {
         const creditLineId = await getOrCreateSNPLCreditLine(orderTotal);
         if (!creditLineId) {
           throw new Error('SNPL approval is required before placing this order.');
+        }
+        orderData.useCreditLine = creditLineId;
+      }
+
+      if (apiPaymentMethod === 'bnpl') {
+        const creditLineId = await getOrCreateBNPLCreditLine(orderTotal);
+        if (!creditLineId) {
+          throw new Error('BNPL approval is required before placing this order.');
         }
         orderData.useCreditLine = creditLineId;
       }
@@ -299,6 +365,14 @@ export function PaymentMethod() {
         {/* Payment Methods */}
         <div className="space-y-4 mb-6">
           <p className="text-[#102542] mb-4">Select Payment Method</p>
+
+          <div className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-4">
+            <p className="text-[#102542] text-sm font-medium mb-2">How credit lines work</p>
+            <p className="text-gray-600 text-xs leading-5">
+              SNPL/BNPL access is approved only when your credit score and available limit meet policy thresholds.
+              Scores improve with verified KYC, healthy transaction activity, and timely repayments.
+            </p>
+          </div>
           
           {paymentMethods.map((method, index) => (
             <motion.div
@@ -355,8 +429,19 @@ export function PaymentMethod() {
                       <span className="text-[#102542]">PKR {orderTotal.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Monthly Payment</span>
-                      <span className="text-[#102542]">PKR {orderTotal.toLocaleString()}</span>
+                      <span className="text-gray-600">Total Repayable</span>
+                      <span className="text-[#102542]">PKR {snplTotalRepayable.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">Installments</span>
+                      <span className="text-[#102542]">
+                        PKR {snplInstallmentAmount.toLocaleString()} x {SNPL_TENURE_MONTHS}
+                      </span>
+                    </div>
+                    <div className="bg-[#102542]/5 rounded-lg p-2 mt-2">
+                      <p className="text-[11px] text-[#102542]">
+                        Due monthly from next month. Amount is evenly split across {SNPL_TENURE_MONTHS} due dates.
+                      </p>
                     </div>
                   </div>
                 </motion.div>

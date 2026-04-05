@@ -12,7 +12,7 @@ const creditLineSchema = new mongoose.Schema({
   // Credit Type
   type: {
     type: String,
-    enum: ['snpl', 'bnpl'],
+    enum: ['snpl', 'bnpl', 'nano'],
     required: true
   },
   
@@ -126,16 +126,28 @@ creditLineSchema.pre('save', function(next) {
 
 // Generate installment schedule
 creditLineSchema.methods.generateInstallments = function() {
-  const installmentAmount = this.principalAmount / this.tenureMonths;
+  const tenure = Math.max(1, Number(this.tenureMonths || 1));
+  const principal = Math.max(0, Number(this.principalAmount || 0));
+  const rate = Math.max(0, Number(this.interestRate || 0));
+  const totalRepayable = Math.round(principal * (1 + rate));
+  const baseInstallment = Math.floor(totalRepayable / tenure);
+  const installmentRemainder = totalRepayable - (baseInstallment * tenure);
+  const basePrincipalPart = Math.floor(principal / tenure);
+  const principalRemainder = principal - (basePrincipalPart * tenure);
+  const baseDate = this.approvedAt ? new Date(this.approvedAt) : new Date();
   const installments = [];
   
-  for (let i = 1; i <= this.tenureMonths; i++) {
-    const dueDate = new Date();
+  for (let i = 1; i <= tenure; i++) {
+    const dueDate = new Date(baseDate);
     dueDate.setMonth(dueDate.getMonth() + i);
+    const amount = baseInstallment + (i <= installmentRemainder ? 1 : 0);
+    const principalAmount = basePrincipalPart + (i <= principalRemainder ? 1 : 0);
     
     installments.push({
       installmentNumber: i,
-      amount: Math.round(installmentAmount),
+      amount,
+      principalAmount,
+      interestAmount: Math.max(0, amount - principalAmount),
       dueDate: dueDate,
       status: 'pending'
     });

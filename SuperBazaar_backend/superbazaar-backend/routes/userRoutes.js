@@ -49,6 +49,51 @@ router.put('/profile', protect, async (req, res) => {
   }
 });
 
+// @desc    Enable/update open banking settings
+// @route   PUT /api/users/open-banking
+// @access  Private
+router.put('/open-banking', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const {
+      shareBankData = true,
+      shareTransactions = true,
+      shareCreditScore = true,
+      enabled = true
+    } = req.body || {};
+
+    user.openBanking = {
+      ...(user.openBanking || {}),
+      enabled: Boolean(enabled),
+      connectedAt: enabled ? new Date() : user.openBanking?.connectedAt,
+      lastSyncAt: enabled ? new Date() : user.openBanking?.lastSyncAt,
+      consents: {
+        shareBankData: Boolean(shareBankData),
+        shareTransactions: Boolean(shareTransactions),
+        shareCreditScore: Boolean(shareCreditScore)
+      }
+    };
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: enabled ? 'Open banking enabled successfully' : 'Open banking settings updated',
+      data: { openBanking: user.openBanking }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating open banking settings',
+      error: error.message
+    });
+  }
+});
+
 // @desc    Get user transactions
 // @route   GET /api/users/transactions
 // @access  Private

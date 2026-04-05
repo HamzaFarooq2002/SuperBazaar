@@ -36,6 +36,16 @@ export interface User {
   isActive: boolean;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
+  openBanking?: {
+    enabled: boolean;
+    connectedAt?: Date;
+    lastSyncAt?: Date;
+    consents?: {
+      shareBankData: boolean;
+      shareTransactions: boolean;
+      shareCreditScore: boolean;
+    };
+  };
   lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -50,7 +60,7 @@ export interface KYCData {
 }
 
 export interface KYCDocument {
-  type: 'cnic_front' | 'cnic_back' | 'ntn_certificate' | 'bank_statement';
+  type: 'cnic_front' | 'cnic_back' | 'ntn_certificate' | 'business_registration' | 'bank_statement';
   url: string;
   uploadedAt: Date;
 }
@@ -196,7 +206,7 @@ export interface CreditLine {
   _id: string;
   user: string;
   userName: string;
-  type: 'snpl' | 'bnpl';
+  type: 'snpl' | 'bnpl' | 'nano';
   creditLimit: number;
   availableCredit: number;
   usedCredit: number;
@@ -431,6 +441,7 @@ export interface CreditAPI {
   getCreditScore: () => Promise<ApiResponse<CreditScoreResult>>;
   applySNPL: (requestedAmount: number) => Promise<ApiResponse<{ creditLine: CreditLine }>>;
   applyBNPL: (orderData: BNPLApplication) => Promise<ApiResponse<{ creditLine: CreditLine }>>;
+  applyNanoLoan: (payload: { requestedAmount: number }) => Promise<ApiResponse<{ creditLine: CreditLine }>>;
   makePayment: (creditLineId: string, paymentData: PaymentData) => Promise<ApiResponse>;
 }
 
@@ -447,6 +458,7 @@ export interface StoresAPI {
 export interface UsersAPI {
   getTransactions: () => Promise<ApiResponse<{ transactions: Transaction[] }>>;
   updateProfile: (profileData: UpdateProfileData) => Promise<ApiResponse<{ user: User }>>;
+  setOpenBanking: (settings: any) => Promise<ApiResponse<{ openBanking: User['openBanking'] }>>;
 }
 
 export interface API {

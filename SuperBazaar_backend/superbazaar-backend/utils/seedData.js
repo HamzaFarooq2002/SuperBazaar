@@ -220,7 +220,7 @@ async function seedDatabase() {
       usedCredit: 150000,
       principalAmount: 150000,
       interestRate: 0.05,
-      tenureMonths: 1,
+      tenureMonths: 4,
       status: 'active',
       approvedAt: new Date(),
       creditScoreAtApplication: 720,

@@ -6,6 +6,7 @@ const {
   getCreditScore,
   applySNPL,
   applyBNPL,
+  applyNanoLoan,
   makePayment
 } = require('../controllers/creditController');
 const { scoreCreditML } = require('../controllers/creditScoreController');
@@ -17,7 +18,8 @@ router.get('/',                                    getCreditLines);
 router.get('/score',                               getCreditScore);
 router.post('/score',                              scoreCreditML);
 router.post('/snpl/apply', restrictTo('merchant'), applySNPL);
-router.post('/bnpl/apply', restrictTo('customer', 'merchant'), applyBNPL);
+router.post('/bnpl/apply', restrictTo('customer'), applyBNPL);
+router.post('/nano/apply', restrictTo('merchant'), applyNanoLoan);
 router.post('/:creditLineId/payment',              makePayment);
 
 module.exports = router;

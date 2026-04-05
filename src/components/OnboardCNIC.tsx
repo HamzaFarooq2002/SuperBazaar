@@ -1,9 +1,12 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
+import api from '../services/api';
 import { ArrowLeft, CreditCard, Phone } from 'lucide-react';
 import svgPaths from "../imports/svg-2pthmw0ane";
-import imgRectangle4 from "figma:asset/a9f37960141116dc132cdcd04169283a98871cc6.png";
+
+const imgRectangle4 = 'https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&fit=crop&w=1200&q=80';
 
 function StatusBar() {
   return (
@@ -39,8 +42,17 @@ function StatusBar() {
 
 export function OnboardCNIC() {
   const { navigateTo } = useContext(AppContext);
+  const { refreshUser } = useAuth();
   const [cnic, setCnic] = useState('');
   const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7530/ingest/c73b5c80-38a1-4b6e-a636-db456719856f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e8ce2'},body:JSON.stringify({sessionId:'5e8ce2',runId:'initial',hypothesisId:'H-ONBOARD-CNIC-LOAD',location:'src/components/OnboardCNIC.tsx:49',message:'OnboardCNIC mounted',data:{hasRefreshUser:typeof refreshUser==='function'},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [refreshUser]);
 
   const formatCNIC = (value: string) => {
     const numbers = value.replace(/\D/g, '');
@@ -169,20 +181,39 @@ export function OnboardCNIC() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          onClick={() => {
-            if (isValid) {
+          onClick={async () => {
+            if (!isValid) return;
+            setLoading(true);
+            setError('');
+            try {
+              await api.users.updateProfile({ phone });
+              await api.auth.submitKYC({ cnic });
+              await refreshUser();
               navigateTo('onboard-otp');
+            } catch (err: any) {
+              setError(err?.error?.message || 'Unable to save verification details');
+            } finally {
+              setLoading(false);
             }
           }}
-          disabled={!isValid}
+          disabled={!isValid || loading}
           className={`w-full h-[43px] rounded-[10px] text-white font-medium text-[15px] tracking-[0.6px] transition-all mt-8 ${
-            isValid 
+            isValid && !loading
               ? 'bg-[#3D8A75] hover:bg-[#2d6b5c]' 
               : 'bg-gray-300 cursor-not-allowed'
           }`}
         >
-          Continue to Verification
+          {loading ? 'Saving...' : 'Continue to Verification'}
         </motion.button>
+
+        {error && <p className="text-red-600 text-sm mt-3 text-center">{error}</p>}
+
+        <button
+          onClick={() => navigateTo('onboard-otp')}
+          className="w-full mt-4 text-[14px] text-black opacity-60 hover:opacity-100 transition-opacity"
+        >
+          Skip for now
+        </button>
       </div>
 
       {/* Home Indicator */}

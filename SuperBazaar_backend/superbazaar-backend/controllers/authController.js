@@ -3,6 +3,51 @@ const Store = require('../models/Store');
 const { generateToken } = require('../utils/jwtUtils');
 const { calculateCreditScore } = require('../utils/creditScoring');
 
+const REQUIRED_BUSINESS_DOCS = ['ntn_certificate', 'business_registration', 'bank_statement'];
+
+const normalizeDocuments = (docs = []) => {
+  if (!Array.isArray(docs)) return [];
+  return docs
+    .map((doc) => {
+      if (!doc) return null;
+      if (typeof doc === 'string') {
+        return { type: doc, url: '' };
+      }
+      if (typeof doc === 'object' && doc.type) {
+        return { type: doc.type, url: doc.url || '' };
+      }
+      return null;
+    })
+    .filter(Boolean);
+};
+
+const computeKycStatus = (user) => {
+  const kycData = user.kycData || {};
+  const docs = Array.isArray(kycData.documents) ? kycData.documents : [];
+  const hasCnic = Boolean(kycData.cnic);
+  const hasFingerprint = Boolean(kycData.fingerprintVerified);
+  const hasPhoneVerified = Boolean(user.isPhoneVerified);
+  const docTypes = new Set(docs.map((d) => d.type));
+  const hasBusinessDocs = REQUIRED_BUSINESS_DOCS.every((type) => docTypes.has(type));
+
+  const hasAnyKycData =
+    hasCnic ||
+    Boolean(kycData.ntn) ||
+    Boolean(kycData.bankIBAN) ||
+    hasFingerprint ||
+    hasPhoneVerified ||
+    docs.length > 0;
+
+  const isBusiness = user.userType === 'merchant' || user.userType === 'supplier';
+  const isFullyVerified = isBusiness
+    ? hasCnic && hasFingerprint && hasPhoneVerified && hasBusinessDocs
+    : hasCnic && hasFingerprint && hasPhoneVerified;
+
+  if (isFullyVerified) return 'verified';
+  if (hasAnyKycData) return 'submitted';
+  return 'pending';
+};
+
 // @desc    Register new user
 // @route   POST /api/auth/signup
 // @access  Public
@@ -146,7 +191,7 @@ const login = async (req, res) => {
 // @access  Private
 const submitKYC = async (req, res) => {
   try {
-    const { cnic, ntn, bankIBAN, fingerprintVerified } = req.body;
+    const { cnic, ntn, bankIBAN, fingerprintVerified, documents, phoneVerified } = req.body;
     
     const user = await User.findById(req.user.id);
     
@@ -157,14 +202,36 @@ const submitKYC = async (req, res) => {
       });
     }
     
-    // Update KYC data
+    const currentKyc = user.kycData || {};
+    const mergedDocsMap = new Map();
+    for (const doc of currentKyc.documents || []) {
+      if (doc?.type) mergedDocsMap.set(doc.type, doc);
+    }
+    for (const doc of normalizeDocuments(documents)) {
+      mergedDocsMap.set(doc.type, {
+        type: doc.type,
+        url: doc.url || mergedDocsMap.get(doc.type)?.url || '',
+        uploadedAt: new Date()
+      });
+    }
+
     user.kycData = {
-      cnic,
-      ntn,
-      bankIBAN,
-      fingerprintVerified: fingerprintVerified || false
+      ...currentKyc,
+      cnic: cnic !== undefined ? cnic : currentKyc.cnic,
+      ntn: ntn !== undefined ? ntn : currentKyc.ntn,
+      bankIBAN: bankIBAN !== undefined ? bankIBAN : currentKyc.bankIBAN,
+      fingerprintVerified:
+        fingerprintVerified !== undefined
+          ? Boolean(fingerprintVerified)
+          : Boolean(currentKyc.fingerprintVerified),
+      documents: Array.from(mergedDocsMap.values())
     };
-    user.kycStatus = 'submitted';
+
+    if (phoneVerified !== undefined) {
+      user.isPhoneVerified = Boolean(phoneVerified);
+    }
+
+    user.kycStatus = computeKycStatus(user);
     
     await user.save();
     

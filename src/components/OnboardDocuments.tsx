@@ -1,6 +1,8 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
+import api from '../services/api';
 import { ArrowLeft, Upload, FileText, CheckCircle2 } from 'lucide-react';
 import svgPaths from "../imports/svg-2pthmw0ane";
 import imgRectangle4 from "figma:asset/a9f37960141116dc132cdcd04169283a98871cc6.png";
@@ -41,7 +43,10 @@ type DocumentType = 'ntn' | 'registration' | 'bank';
 
 export function OnboardDocuments() {
   const { navigateTo } = useContext(AppContext);
+  const { refreshUser } = useAuth();
   const [uploadedDocs, setUploadedDocs] = useState<Set<DocumentType>>(new Set());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const documents = [
     {
@@ -71,6 +76,12 @@ export function OnboardDocuments() {
   };
 
   const allUploaded = documents.every(doc => uploadedDocs.has(doc.id));
+
+  const docTypeMap: Record<DocumentType, string> = {
+    ntn: 'ntn_certificate',
+    registration: 'business_registration',
+    bank: 'bank_statement'
+  };
 
   return (
     <div className="relative min-h-screen w-full bg-white overflow-hidden">
@@ -192,20 +203,51 @@ export function OnboardDocuments() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          onClick={() => {
-            if (allUploaded) {
+          onClick={async () => {
+            if (!allUploaded) return;
+            setLoading(true);
+            setError('');
+            try {
+              const kycDocs = Array.from(uploadedDocs).map((doc) => ({ type: docTypeMap[doc] }));
+              await api.auth.submitKYC({ documents: kycDocs });
+              await refreshUser();
               navigateTo('onboard-congratulations');
+            } catch (err: any) {
+              setError(err?.error?.message || 'Unable to submit documents');
+            } finally {
+              setLoading(false);
             }
           }}
-          disabled={!allUploaded}
+          disabled={!allUploaded || loading}
           className={`w-full h-[43px] rounded-[10px] text-white font-medium text-[15px] tracking-[0.6px] transition-all ${
-            allUploaded 
+            allUploaded && !loading
               ? 'bg-[#3D8A75] hover:bg-[#2d6b5c]' 
               : 'bg-gray-300 cursor-not-allowed'
           }`}
         >
-          Continue
+          {loading ? 'Submitting...' : 'Continue'}
         </motion.button>
+
+        {error && <p className="text-red-600 text-sm mt-3 text-center">{error}</p>}
+
+        <button
+          onClick={async () => {
+            setLoading(true);
+            setError('');
+            try {
+              await api.auth.submitKYC({ documents: [] });
+              await refreshUser();
+              navigateTo('onboard-congratulations');
+            } catch (err: any) {
+              setError(err?.error?.message || 'Unable to skip documents');
+            } finally {
+              setLoading(false);
+            }
+          }}
+          className="w-full mt-4 text-[14px] text-black opacity-60 hover:opacity-100 transition-opacity"
+        >
+          Skip for now
+        </button>
       </div>
 
       {/* Home Indicator */}

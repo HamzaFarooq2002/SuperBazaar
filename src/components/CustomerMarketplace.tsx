@@ -3,16 +3,17 @@ import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
 import api from '../services/api';
-import { ArrowLeft, Search, ShoppingBag, Star, Heart, Inbox } from 'lucide-react';
+import { ArrowLeft, Search, ShoppingBag, Star, Heart, Inbox, Plus, Minus, Trash2, CheckCircle2 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function CustomerMarketplace() {
   const { navigateTo, setSelectedProduct } = useContext(AppContext);
-  const { totalItems, addItem } = useCart();
+  const { totalItems, addItem, items, updateQuantity, removeItem } = useCart();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [addedProductId, setAddedProductId] = useState('');
 
   const categories = ['All', 'Electronics', 'Fashion', 'Home & Living', 'Sports', 'Beauty'];
   const [activeCategory, setActiveCategory] = useState('All');
@@ -72,7 +73,11 @@ export function CustomerMarketplace() {
       supplierName: raw.supplierName || raw.supplier?.name || 'Unknown Supplier',
       image: product.image
     });
+    setAddedProductId(raw._id || product.id);
+    setTimeout(() => setAddedProductId(''), 1400);
   };
+
+  const getProductQty = (productId: string) => items.find((i) => i.productId === productId)?.quantity || 0;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
@@ -206,18 +211,73 @@ export function CustomerMarketplace() {
                       </p>
                     </div>
                   )}
-                  <button
-                    onClick={(e) => handleAddToCart(product, e)}
-                    className="mt-3 w-full h-9 rounded-xl bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] text-white text-xs font-medium hover:shadow-lg transition-all cursor-pointer"
-                  >
-                    Add to Cart
-                  </button>
+                  {getProductQty(product.id) > 0 ? (
+                    <div className="mt-3">
+                      <div className="w-full h-9 rounded-xl bg-[#3D8A75]/10 border border-[#3D8A75]/30 text-[#102542] text-xs font-medium flex items-center justify-between px-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const qty = getProductQty(product.id);
+                            if (qty <= 1) {
+                              removeItem(product.id);
+                            } else {
+                              updateQuantity(product.id, qty - 1);
+                            }
+                          }}
+                          className="w-6 h-6 rounded-md bg-white flex items-center justify-center"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span>{getProductQty(product.id)} in cart</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateQuantity(product.id, getProductQty(product.id) + 1);
+                          }}
+                          className="w-6 h-6 rounded-md bg-white flex items-center justify-center"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeItem(product.id);
+                        }}
+                        className="mt-2 w-full h-8 rounded-lg border border-gray-200 bg-white text-gray-600 text-xs flex items-center justify-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => handleAddToCart(product, e)}
+                      className={`mt-3 w-full h-9 rounded-xl text-white text-xs font-medium transition-all cursor-pointer ${
+                        addedProductId === product.id
+                          ? 'bg-[#2d6b5c]'
+                          : 'bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] hover:shadow-lg'
+                      }`}
+                    >
+                      {addedProductId === product.id ? 'Added' : 'Add to Cart'}
+                    </button>
+                  )}
                 </div>
               </motion.div>
             ))}
           </div>
         )}
       </div>
+
+      {addedProductId && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#102542] text-white px-4 py-2 rounded-full text-xs shadow-lg flex items-center gap-2 z-20">
+          <CheckCircle2 className="w-4 h-4 text-green-300" />
+          Added to cart
+          <button onClick={() => navigateTo('shopping-cart')} className="underline text-green-200">
+            View cart
+          </button>
+        </div>
+      )}
 
       <style>
         {`

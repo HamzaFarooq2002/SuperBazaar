@@ -1,6 +1,8 @@
 import React, { useContext, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
+import api from '../services/api';
 import { ArrowLeft, Fingerprint, CheckCircle2 } from 'lucide-react';
 import svgPaths from "../imports/svg-2pthmw0ane";
 import imgRectangle4 from "figma:asset/a9f37960141116dc132cdcd04169283a98871cc6.png";
@@ -39,15 +41,23 @@ function StatusBar() {
 
 export function OnboardBiometric() {
   const { navigateTo, userType } = useContext(AppContext);
+  const { refreshUser } = useAuth();
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [error, setError] = useState('');
 
   const handleBiometric = () => {
     setIsVerifying(true);
     setTimeout(() => {
       setIsVerifying(false);
       setIsVerified(true);
-      setTimeout(() => {
+      setTimeout(async () => {
+        try {
+          await api.auth.submitKYC({ fingerprintVerified: true });
+          await refreshUser();
+        } catch (err: any) {
+          setError(err?.error?.message || 'Unable to save biometric status');
+        }
         // Customers skip documents and go to congratulations
         if (userType === 'customer') {
           navigateTo('onboard-congratulations');
@@ -199,11 +209,23 @@ export function OnboardBiometric() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            onClick={() => navigateTo(userType === 'customer' ? 'onboard-congratulations' : 'onboard-documents')}
+            onClick={async () => {
+              try {
+                await api.auth.submitKYC({ fingerprintVerified: false });
+                await refreshUser();
+              } catch (err: any) {
+                setError(err?.error?.message || 'Unable to save biometric status');
+              }
+              navigateTo(userType === 'customer' ? 'onboard-congratulations' : 'onboard-documents');
+            }}
             className="mt-4 text-[14px] text-black opacity-60 hover:opacity-100 transition-opacity"
           >
             Skip for now
           </motion.button>
+        )}
+
+        {error && (
+          <p className="text-red-600 text-sm mt-3 text-center">{error}</p>
         )}
       </div>
 
