@@ -70,6 +70,7 @@ export function Dashboard() {
 
   const quickActions = [
     { label: 'Payments', icon: CreditCard, action: () => navigateTo('payments-main'), color: 'bg-[#3D8A75]' },
+    { label: 'Open Banking', icon: FileText, action: () => navigateTo('open-banking-journey'), color: 'bg-[#102542]' },
     { label: 'Marketplace', icon: ShoppingBag, action: () => navigateTo('marketplace'), color: 'bg-[#102542]' },
     { label: 'My Orders', icon: Receipt, action: () => navigateTo('order-tracking'), color: 'bg-[#3D8A75]' },
     { label: 'Analytics', icon: BarChart3, action: () => navigateTo('analytics'), color: 'bg-[#102542]' },

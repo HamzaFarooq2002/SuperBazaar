@@ -380,6 +380,20 @@ const creditAPI = {
   },
 
   /**
+   * Apply for BNPL (Buy Now Pay Later)
+   * @param {Object} payload - BNPL request payload
+   * @returns {Promise}
+   */
+  applyBNPL: async (payload) => {
+    try {
+      const response = await axiosInstance.post('/credit/bnpl/apply', payload);
+      return handleResponse(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
    * Make payment on credit line
    * @param {string} creditLineId - Credit line ID
    * @param {Object} paymentData - Payment information

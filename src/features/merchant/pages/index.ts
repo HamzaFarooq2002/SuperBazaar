@@ -5,3 +5,4 @@ export { Expenses } from '../../../components/Expenses';
 export { TransactionsList } from '../../../components/TransactionsList';
 export { TransactionDetails } from '../../../components/TransactionDetails';
 export { MerchantProducts } from '../../../components/MerchantProducts';
+export { OpenBankingJourney } from '../../../components/OpenBankingJourney';

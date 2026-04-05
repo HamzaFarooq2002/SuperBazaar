@@ -17,6 +17,8 @@ export function SNPLDetails() {
   const [autoRepayment, setAutoRepayment] = React.useState(false);
   const [creditLine, setCreditLine] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
   useEffect(() => {
     const loadSNPLDetails = async () => {
@@ -73,6 +75,28 @@ export function SNPLDetails() {
   const paidAmount = installments.filter((i: any) => i.status === 'paid').reduce((s: number, i: any) => s + i.amount, 0);
   const remainingBalance = totalAmount - paidAmount;
   const nextInstallment = installments.find((i: any) => i.status === 'pending');
+
+  const handlePayNextInstallment = async () => {
+    if (!creditLine?._id || !nextInstallment?.amount) return;
+    setPaying(true);
+    setPaymentError('');
+    try {
+      await api.credit.makePayment(creditLine._id, {
+        amount: nextInstallment.amount,
+        paymentMethod: 'bank_transfer'
+      });
+      const response = await api.credit.getCreditLines();
+      if (response.success) {
+        const lines = response.data?.creditLines || response.data || [];
+        const snpl = lines.find((cl: any) => cl._id === creditLine._id) || null;
+        setCreditLine(snpl);
+      }
+    } catch (err: any) {
+      setPaymentError(err?.error?.message || err?.message || 'Payment failed');
+    } finally {
+      setPaying(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -167,6 +191,31 @@ export function SNPLDetails() {
             </button>
           </div>
         </motion.div>
+
+        {paymentError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+            <p className="text-red-600 text-sm">{paymentError}</p>
+          </div>
+        )}
+
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          onClick={handlePayNextInstallment}
+          disabled={!nextInstallment || paying}
+          className={`w-full h-12 rounded-xl text-white font-semibold transition-colors ${
+            !nextInstallment || paying
+              ? 'bg-gray-300 cursor-not-allowed'
+              : 'bg-[#3D8A75] hover:bg-[#2d6b5c]'
+          }`}
+        >
+          {paying
+            ? 'Processing Payment...'
+            : nextInstallment
+              ? `Pay PKR ${(nextInstallment.amount || 0).toLocaleString()} Now`
+              : 'Loan Fully Repaid'}
+        </motion.button>
       </div>
 
       {/* Bottom Navigation */}
