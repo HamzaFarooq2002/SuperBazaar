@@ -5,6 +5,9 @@ import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { ArrowLeft, TrendingUp, TrendingDown, Info, Share2, Download, RefreshCcw } from 'lucide-react';
 
+const SNPL_MIN_SCORE = 680;
+const BNPL_MIN_SCORE = 620;
+
 export function CreditScoreResult() {
   const { navigateTo } = useContext(AppContext);
   const { user } = useAuth();
@@ -19,6 +22,7 @@ export function CreditScoreResult() {
   const [creditData, setCreditData] = useState<any>(null);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [txCount, setTxCount] = useState(0);
 
   const loadCreditScore = async () => {
     setError('');
@@ -38,6 +42,10 @@ export function CreditScoreResult() {
       } else {
         setError('No credit score found. Please generate one first.');
       }
+
+      const txRes = await api.users.getTransactions();
+      const txns = txRes?.data?.transactions || txRes?.data || [];
+      setTxCount((Array.isArray(txns) ? txns : []).filter((t: any) => t.status === 'completed').length);
     } catch (err: any) {
       console.error('Failed to load credit score:', err);
       setError(err?.error?.message || 'Failed to load credit score');
@@ -109,46 +117,73 @@ export function CreditScoreResult() {
   };
 
   const status = getScoreStatus(creditScore);
+  const isSnplEligible = creditScore >= SNPL_MIN_SCORE;
+  const isBnplEligible = creditScore >= BNPL_MIN_SCORE;
+  const isMerchant = user?.userType === 'merchant';
+  const isCustomer = user?.userType === 'customer';
+
+  const accountAgeMonths = user?.createdAt ? Math.max(0, Math.floor((Date.now() - new Date(user.createdAt as any).getTime()) / (1000 * 60 * 60 * 24 * 30))) : 0;
+  const paymentHistoryTier =
+    user?.kycStatus === 'verified' && txCount >= 10 ? 'Good' :
+    user?.kycStatus === 'verified' && txCount >= 3 ? 'Average' : 'Needs work';
+  const accountAgeTier = accountAgeMonths >= 24 ? 'Established' : accountAgeMonths >= 6 ? 'Growing' : 'New';
+  const txVolumeTier = txCount >= 20 ? 'Good' : txCount >= 8 ? 'Average' : 'Low';
+  const utilizationRatio = Math.max(0, Math.min(1, Number(factors.creditUtilization || 0)));
+  const utilizationTier = utilizationRatio > 0 && utilizationRatio <= 0.6 ? 'Good' : utilizationRatio <= 0.85 ? 'Average' : 'High';
+  const paymentHistoryProgress = user?.kycStatus === 'verified' ? Math.min(100, Math.round((txCount / 10) * 100)) : 0;
+  const accountAgeProgress = Math.min(100, Math.round((accountAgeMonths / 24) * 100));
+  const txVolumeProgress = Math.min(100, Math.round((txCount / 20) * 100));
+  const utilizationProgress =
+    utilizationRatio === 0
+      ? 0
+      : utilizationRatio <= 0.6
+      ? Math.min(100, Math.round((utilizationRatio / 0.6) * 100))
+      : Math.max(0, Math.round(100 - ((utilizationRatio - 0.6) / 0.4) * 100));
 
   const factorsList = [
     {
       title: 'Payment History',
-      score: Math.round(factors.paymentHistory || 0),
-      maxScore: 35,
-      status: (factors.paymentHistory || 0) >= 30 ? 'excellent' : (factors.paymentHistory || 0) >= 20 ? 'good' : (factors.paymentHistory || 0) >= 10 ? 'fair' : 'needs-work',
+      metric: `${txCount} completed transactions`,
+      status: paymentHistoryTier,
+      fill: paymentHistoryProgress,
       icon: TrendingUp,
-      detail: factors.paymentHistory >= 30 ? 'Excellent KYC and payment record' : 'Complete KYC verification to improve'
+      healthyTarget: 'Verified KYC + 10+ completed transactions',
+      detail: user?.kycStatus === 'verified' ? 'Verified KYC and consistent repayments improve this.' : 'KYC verification is pending.'
     },
     {
       title: 'Account Age',
-      score: Math.round(factors.accountAge || 0),
-      maxScore: 15,
-      status: (factors.accountAge || 0) >= 12 ? 'excellent' : (factors.accountAge || 0) >= 8 ? 'good' : (factors.accountAge || 0) >= 4 ? 'fair' : 'needs-work',
+      metric: `${accountAgeMonths} month${accountAgeMonths === 1 ? '' : 's'} old`,
+      status: accountAgeTier,
+      fill: accountAgeProgress,
       icon: Info,
-      detail: factors.accountAge >= 12 ? 'Well-established account' : 'Account age contributes to your score over time'
+      healthyTarget: '24+ months account age',
+      detail: 'Older and consistently active accounts are preferred.'
     },
     {
       title: 'Transaction Volume',
-      score: Math.round(factors.transactionVolume || 0),
-      maxScore: 25,
-      status: (factors.transactionVolume || 0) >= 20 ? 'excellent' : (factors.transactionVolume || 0) >= 12 ? 'good' : (factors.transactionVolume || 0) >= 6 ? 'fair' : 'needs-work',
-      icon: (factors.transactionVolume || 0) >= 12 ? TrendingUp : TrendingDown,
-      detail: factors.transactionVolume >= 12 ? 'Strong transaction history' : 'Increase completed transactions to improve'
+      metric: `${txCount} completed transaction${txCount === 1 ? '' : 's'}`,
+      status: txVolumeTier,
+      fill: txVolumeProgress,
+      icon: txCount >= 8 ? TrendingUp : TrendingDown,
+      healthyTarget: '20+ completed transactions',
+      detail: 'More completed transactions strengthen credit confidence.'
     },
     {
       title: 'Credit Utilization',
-      score: Math.round(factors.creditUtilization || 0),
-      maxScore: 25,
-      status: (factors.creditUtilization || 0) >= 20 ? 'excellent' : (factors.creditUtilization || 0) >= 12 ? 'good' : (factors.creditUtilization || 0) >= 6 ? 'fair' : 'needs-work',
+      metric: `${Math.round(utilizationRatio * 100)}% utilized`,
+      status: utilizationTier,
+      fill: utilizationProgress,
       icon: TrendingUp,
-      detail: 'Based on your credit usage patterns'
+      healthyTarget: 'Maintain 30% to 60% utilization',
+      detail: 'Balanced utilization is preferred over very high usage.'
     }
   ];
 
+  const needsKycVerification = user?.kycStatus !== 'verified';
   const recommendations = creditScore >= 700
     ? ['Maintain your excellent payment history', 'Consider increasing transaction volume', 'Your credit limit is well-positioned']
     : [
-        'Complete KYC verification to boost your score',
+        ...(needsKycVerification ? ['Complete KYC verification to boost your score'] : []),
         'Increase your transaction volume with regular purchases',
         'Maintain consistent activity on the platform',
         'Build credit history over time'
@@ -291,12 +326,44 @@ export function CreditScoreResult() {
           </button>
         </motion.div>
 
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.95 }}
+          className="bg-white/50 backdrop-blur-md border border-white/60 rounded-[12px] p-4 mb-6"
+        >
+          <p className="text-[13px] text-[#102542] font-medium mb-2">Loan access thresholds</p>
+          <p className="text-[12px] text-[#102542] opacity-70 mb-3">
+            {isMerchant
+              ? `SNPL unlocks at score ${SNPL_MIN_SCORE}+ and nano loans unlock by tier.`
+              : isCustomer
+              ? `BNPL unlocks at score ${BNPL_MIN_SCORE}+ with verified KYC and transaction history.`
+              : 'Credit products are role-based and score-gated.'}
+          </p>
+          <div className="text-[12px] text-[#102542] space-y-1 mb-3">
+            {isMerchant && <p>{isSnplEligible ? '✓' : '•'} SNPL eligibility: {isSnplEligible ? 'Eligible' : 'Not eligible yet'}</p>}
+            {isCustomer && <p>{isBnplEligible ? '✓' : '•'} BNPL eligibility: {isBnplEligible ? 'Eligible' : 'Not eligible yet'}</p>}
+          </div>
+          <button
+            onClick={() => navigateTo('payments-main')}
+            disabled={(isMerchant && !isSnplEligible) || (isCustomer && !isBnplEligible)}
+            className={`w-full h-10 rounded-lg text-sm font-medium transition-colors ${
+              (isMerchant && isSnplEligible) || (isCustomer && isBnplEligible)
+                ? 'bg-[#3D8A75] text-white hover:bg-[#2d6b5c]'
+                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            {(isMerchant && isSnplEligible) || (isCustomer && isBnplEligible)
+              ? 'View Available Credit Lines'
+              : 'Improve score to unlock credit'}
+          </button>
+        </motion.div>
+
         {/* Score Factors */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="mb-6">
           <h3 className="text-[16px] text-[#102542] font-medium mb-3">Score Breakdown</h3>
           <div className="space-y-3">
             {factorsList.map((factor, index) => {
-              const percentage = factor.maxScore > 0 ? Math.round((factor.score / factor.maxScore) * 100) : 0;
               return (
                 <motion.div
                   key={index}
@@ -308,36 +375,39 @@ export function CreditScoreResult() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className={`w-[30px] h-[30px] rounded-full flex items-center justify-center ${
-                        factor.status === 'excellent' ? 'bg-[#3D8A75]/20' :
-                        factor.status === 'good' ? 'bg-[#38a829]/20' :
-                        factor.status === 'fair' ? 'bg-[#f59e0b]/20' :
+                        factor.status === 'Good' || factor.status === 'Established' ? 'bg-[#3D8A75]/20' :
+                        factor.status === 'Average' || factor.status === 'Growing' ? 'bg-[#f59e0b]/20' :
                         'bg-[#ef4444]/20'
                       }`}>
                         <factor.icon className={`w-4 h-4 ${
-                          factor.status === 'excellent' ? 'text-[#3D8A75]' :
-                          factor.status === 'good' ? 'text-[#38a829]' :
-                          factor.status === 'fair' ? 'text-[#f59e0b]' :
+                          factor.status === 'Good' || factor.status === 'Established' ? 'text-[#3D8A75]' :
+                          factor.status === 'Average' || factor.status === 'Growing' ? 'text-[#f59e0b]' :
                           'text-[#ef4444]'
                         }`} />
                       </div>
                       <p className="text-[13px] text-[#102542] font-medium">{factor.title}</p>
                     </div>
-                    <span className="text-[14px] text-[#102542] font-medium">{percentage}%</span>
+                    <span className="text-[12px] text-[#102542] font-medium">{factor.status}</span>
                   </div>
+                  <p className="text-[11px] text-[#102542] opacity-75 mb-2">{factor.metric}</p>
                   
                   <div className="bg-white/50 rounded-full h-[6px] overflow-hidden mb-2">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${percentage}%` }}
+                      animate={{ width: `${Math.max(0, Math.min(100, factor.fill))}%` }}
                       transition={{ duration: 1, delay: 1.2 + index * 0.1 }}
                       className={`h-full rounded-full ${
-                        factor.status === 'excellent' ? 'bg-[#3D8A75]' :
-                        factor.status === 'good' ? 'bg-[#38a829]' :
-                        factor.status === 'fair' ? 'bg-[#f59e0b]' :
+                        factor.status === 'Good' || factor.status === 'Established' ? 'bg-[#3D8A75]' :
+                        factor.status === 'Average' || factor.status === 'Growing' ? 'bg-[#f59e0b]' :
                         'bg-[#ef4444]'
                       }`}
                     />
                   </div>
+                  <div className="flex items-center justify-between text-[10px] text-[#102542] opacity-60 mb-1">
+                    <span>Current progress: {Math.max(0, Math.min(100, factor.fill))}%</span>
+                    <span>Healthy target</span>
+                  </div>
+                  <p className="text-[10px] text-[#102542] opacity-70 mb-1">{factor.healthyTarget}</p>
 
                   {showDetails && (
                     <motion.p
@@ -369,7 +439,16 @@ export function CreditScoreResult() {
                 <div className="w-[18px] h-[18px] rounded-full bg-[#3D8A75] flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-white text-[10px]">{index + 1}</span>
                 </div>
-                <p className="text-[12px] text-[#102542] opacity-80 leading-relaxed">{rec}</p>
+                {rec === 'Complete KYC verification to boost your score' && needsKycVerification ? (
+                  <button
+                    onClick={() => navigateTo('onboard-cnic')}
+                    className="text-[12px] text-[#3D8A75] underline text-left leading-relaxed"
+                  >
+                    {rec}
+                  </button>
+                ) : (
+                  <p className="text-[12px] text-[#102542] opacity-80 leading-relaxed">{rec}</p>
+                )}
               </motion.div>
             ))}
           </div>

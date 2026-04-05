@@ -51,7 +51,7 @@ const userSchema = new mongoose.Schema({
     documents: [{
       type: {
         type: String,
-        enum: ['cnic_front', 'cnic_back', 'ntn_certificate', 'bank_statement']
+        enum: ['cnic_front', 'cnic_back', 'ntn_certificate', 'business_registration', 'bank_statement']
       },
       url: String,
       uploadedAt: {
@@ -122,6 +122,30 @@ creditScore: {
   isPhoneVerified: {
     type: Boolean,
     default: false
+  },
+
+  // Open Banking
+  openBanking: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    connectedAt: Date,
+    lastSyncAt: Date,
+    consents: {
+      shareBankData: {
+        type: Boolean,
+        default: false
+      },
+      shareTransactions: {
+        type: Boolean,
+        default: false
+      },
+      shareCreditScore: {
+        type: Boolean,
+        default: false
+      }
+    }
   },
   
   // Timestamps

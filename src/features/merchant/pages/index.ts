@@ -6,3 +6,6 @@ export { TransactionsList } from '../../../components/TransactionsList';
 export { TransactionDetails } from '../../../components/TransactionDetails';
 export { MerchantProducts } from '../../../components/MerchantProducts';
 export { OpenBankingJourney } from '../../../components/OpenBankingJourney';
+export { OpenBankingConsent } from '../../../components/OpenBankingConsent';
+export { OpenBankingProcessing } from '../../../components/OpenBankingProcessing';
+export { OpenBankingEnabled } from '../../../components/OpenBankingEnabled';

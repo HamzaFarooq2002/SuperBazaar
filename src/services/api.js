@@ -394,6 +394,20 @@ const creditAPI = {
   },
 
   /**
+   * Apply for Nano Loan (Merchants only)
+   * @param {Object} payload - Nano loan request payload
+   * @returns {Promise}
+   */
+  applyNanoLoan: async (payload) => {
+    try {
+      const response = await axiosInstance.post('/credit/nano/apply', payload);
+      return handleResponse(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
    * Make payment on credit line
    * @param {string} creditLineId - Credit line ID
    * @param {Object} paymentData - Payment information
@@ -509,6 +523,15 @@ const usersAPI = {
   getRewards: async () => {
     try {
       const response = await axiosInstance.get('/users/rewards');
+      return handleResponse(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  setOpenBanking: async (settings = {}) => {
+    try {
+      const response = await axiosInstance.put('/users/open-banking', settings);
       return handleResponse(response);
     } catch (error) {
       throw error;

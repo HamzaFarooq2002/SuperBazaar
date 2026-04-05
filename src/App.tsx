@@ -32,6 +32,9 @@ import {
   TransactionDetails,
   MerchantProducts,
   OpenBankingJourney,
+  OpenBankingConsent,
+  OpenBankingProcessing,
+  OpenBankingEnabled,
 } from './features/merchant/pages';
 
 // Supplier feature screens
@@ -105,6 +108,9 @@ export type Screen =
   | 'bnpl-application'
   | 'bnpl-approved'
   | 'open-banking-journey'
+  | 'open-banking-consent'
+  | 'open-banking-processing'
+  | 'open-banking-enabled'
   | 'marketplace'
   | 'product-detail'
   | 'shopping-cart'
@@ -155,6 +161,9 @@ export default function App() {
   useEffect(() => {
     const handleAuth401 = () => navigateTo('login');
     window.addEventListener('auth-401', handleAuth401);
+    // #region agent log
+    fetch('http://127.0.0.1:7530/ingest/c73b5c80-38a1-4b6e-a636-db456719856f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e8ce2'},body:JSON.stringify({sessionId:'5e8ce2',runId:'initial',hypothesisId:'H-RUNTIME-START',location:'src/App.tsx:165',message:'App mounted',data:{screen:currentScreen,href:window.location.href},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     return () => window.removeEventListener('auth-401', handleAuth401);
   }, []);
 
@@ -233,6 +242,12 @@ export default function App() {
         return <BNPLApproved key="bnpl-approved" />;
       case 'open-banking-journey':
         return <OpenBankingJourney key="open-banking-journey" />;
+      case 'open-banking-consent':
+        return <OpenBankingConsent key="open-banking-consent" />;
+      case 'open-banking-processing':
+        return <OpenBankingProcessing key="open-banking-processing" />;
+      case 'open-banking-enabled':
+        return <OpenBankingEnabled key="open-banking-enabled" />;
       case 'marketplace':
         return <Marketplace key="marketplace" />;
       case 'product-detail':

@@ -3,14 +3,14 @@ import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
-import { ArrowLeft, Search, ShoppingCart, Star, CreditCard, Package } from 'lucide-react';
+import { ArrowLeft, Search, ShoppingCart, Star, CreditCard, Plus, Minus, Trash2, CheckCircle2 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import api from '../services/api';
 import type { Product } from '../services/api.types';
 
 export function Marketplace() {
   const { navigateTo, setSelectedProduct } = useContext(AppContext);
-  const { addItem, totalItems } = useCart();
+  const { addItem, totalItems, items, updateQuantity, removeItem } = useCart();
   const { user } = useAuth();
   const homeDashboard =
     user?.userType === 'customer'
@@ -24,6 +24,7 @@ export function Marketplace() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [addedProductId, setAddedProductId] = useState('');
 
   useEffect(() => {
     loadProducts();
@@ -57,7 +58,11 @@ export function Marketplace() {
       supplierName: product.supplierName,
       image: product.mainImage
     });
+    setAddedProductId(product._id);
+    setTimeout(() => setAddedProductId(''), 1400);
   };
+
+  const getProductQty = (productId: string) => items.find((i) => i.productId === productId)?.quantity || 0;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
@@ -162,19 +167,72 @@ export function Marketplace() {
                   <p className="text-[#3D8A75]">PKR {item.price.toLocaleString()}</p>
                   <p className="text-gray-400 text-xs">{item.unit}</p>
                 </div>
-                <button 
-                  onClick={(e) => handleQuickAdd(item, e)}
-                  className="w-full py-2 rounded-lg bg-[#3D8A75] text-white text-sm hover:bg-[#2d6a5c] transition-colors flex items-center justify-center gap-1 mt-auto"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  Add to Cart
-                </button>
+                {getProductQty(item._id) > 0 ? (
+                  <div className="mt-auto">
+                    <div className="w-full py-2 rounded-lg bg-[#3D8A75]/10 border border-[#3D8A75]/30 text-[#102542] text-sm flex items-center justify-between px-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const qty = getProductQty(item._id);
+                          if (qty <= 1) {
+                            removeItem(item._id);
+                          } else {
+                            updateQuantity(item._id, qty - 1);
+                          }
+                        }}
+                        className="w-7 h-7 rounded-md bg-white flex items-center justify-center"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="text-xs font-medium">{getProductQty(item._id)} in cart</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateQuantity(item._id, getProductQty(item._id) + 1);
+                        }}
+                        className="w-7 h-7 rounded-md bg-white flex items-center justify-center"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeItem(item._id);
+                      }}
+                      className="w-full mt-2 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-600 text-xs flex items-center justify-center gap-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={(e) => handleQuickAdd(item, e)}
+                    className={`w-full py-2 rounded-lg text-white text-sm transition-colors flex items-center justify-center gap-1 mt-auto ${
+                      addedProductId === item._id ? 'bg-[#2d6a5c]' : 'bg-[#3D8A75] hover:bg-[#2d6a5c]'
+                    }`}
+                  >
+                    {addedProductId === item._id ? <CheckCircle2 className="w-4 h-4" /> : <CreditCard className="w-4 h-4" />}
+                    {addedProductId === item._id ? 'Added' : 'Add to Cart'}
+                  </button>
+                )}
               </div>
             </motion.div>
             ))}
           </div>
         )}
       </div>
+
+      {addedProductId && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#102542] text-white px-4 py-2 rounded-full text-xs shadow-lg flex items-center gap-2 z-20">
+          <CheckCircle2 className="w-4 h-4 text-green-300" />
+          Added to cart
+          <button onClick={() => navigateTo('shopping-cart')} className="underline text-green-200">
+            View cart
+          </button>
+        </div>
+      )}
 
       <style>
         {`

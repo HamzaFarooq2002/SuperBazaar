@@ -18,6 +18,20 @@ const createOrder = async (req, res) => {
       });
     }
 
+    if (paymentMethod === 'snpl' && req.user.userType !== 'merchant') {
+      return res.status(403).json({
+        success: false,
+        message: 'SNPL can only be used by merchants'
+      });
+    }
+
+    if (paymentMethod === 'bnpl' && req.user.userType !== 'customer') {
+      return res.status(403).json({
+        success: false,
+        message: 'BNPL can only be used by customers'
+      });
+    }
+
     const orderItems = [];
     let subtotal = 0;
 
@@ -68,6 +82,13 @@ const createOrder = async (req, res) => {
       shippingAddress
     });
 
+    if (paymentMethod === 'snpl' && !useCreditLine) {
+      return res.status(400).json({
+        success: false,
+        message: 'SNPL orders require an approved credit line'
+      });
+    }
+
     if (paymentMethod === 'snpl' && useCreditLine) {
       const creditLine = await CreditLine.findById(useCreditLine);
 
@@ -75,11 +96,52 @@ const createOrder = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Invalid credit line' });
       }
 
+      if (creditLine.type !== 'snpl' || !['approved', 'active'].includes(creditLine.status)) {
+        return res.status(400).json({
+          success: false,
+          message: 'A valid active SNPL credit line is required'
+        });
+      }
+
       if (creditLine.availableCredit < totalAmount) {
         return res.status(400).json({ success: false, message: 'Insufficient credit available' });
       }
 
       creditLine.usedCredit += totalAmount;
+      creditLine.availableCredit = Math.max(0, (creditLine.availableCredit || 0) - totalAmount);
+      creditLine.orders.push(order._id);
+      await creditLine.save();
+
+      order.creditLine = creditLine._id;
+      order.paymentStatus = 'paid';
+    }
+
+    if (paymentMethod === 'bnpl') {
+      if (!useCreditLine) {
+        return res.status(400).json({
+          success: false,
+          message: 'BNPL orders require an approved credit line'
+        });
+      }
+
+      const creditLine = await CreditLine.findById(useCreditLine);
+      if (!creditLine || creditLine.user.toString() !== req.user.id) {
+        return res.status(400).json({ success: false, message: 'Invalid credit line' });
+      }
+
+      if (creditLine.type !== 'bnpl' || !['approved', 'active'].includes(creditLine.status)) {
+        return res.status(400).json({
+          success: false,
+          message: 'A valid active BNPL credit line is required'
+        });
+      }
+
+      if (creditLine.availableCredit < totalAmount) {
+        return res.status(400).json({ success: false, message: 'Insufficient BNPL credit available' });
+      }
+
+      creditLine.usedCredit += totalAmount;
+      creditLine.availableCredit = Math.max(0, (creditLine.availableCredit || 0) - totalAmount);
       creditLine.orders.push(order._id);
       await creditLine.save();
 

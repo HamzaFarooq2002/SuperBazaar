@@ -71,18 +71,19 @@ export function SNPLDetails() {
   }
 
   const installments = creditLine.installments || [];
-  const totalAmount = creditLine.principalAmount || 0;
-  const paidAmount = installments.filter((i: any) => i.status === 'paid').reduce((s: number, i: any) => s + i.amount, 0);
-  const remainingBalance = totalAmount - paidAmount;
+  const totalAmount = installments.reduce((sum: number, i: any) => sum + (i.amount || 0), 0) || (creditLine.principalAmount || 0);
+  const paidAmount = creditLine.repayments?.reduce((s: number, r: any) => s + (r.amount || 0), 0) || 0;
+  const remainingBalance = Math.max(0, totalAmount - paidAmount);
   const nextInstallment = installments.find((i: any) => i.status === 'pending');
+  const nextInstallmentDue = Math.max(0, (nextInstallment?.amount || 0) - (nextInstallment?.paidAmount || 0));
 
   const handlePayNextInstallment = async () => {
-    if (!creditLine?._id || !nextInstallment?.amount) return;
+    if (!creditLine?._id || !nextInstallmentDue) return;
     setPaying(true);
     setPaymentError('');
     try {
       await api.credit.makePayment(creditLine._id, {
-        amount: nextInstallment.amount,
+        amount: nextInstallmentDue,
         paymentMethod: 'bank_transfer'
       });
       const response = await api.credit.getCreditLines();
@@ -127,7 +128,7 @@ export function SNPLDetails() {
             <div className="glass rounded-2xl p-4 border border-gray-200">
               <p className="text-[14px] text-[#102542] mb-2">Next Payment</p>
               <p className="text-[24px] font-bold text-[#102542]">
-                PKR {(nextInstallment?.amount || 0).toLocaleString()}
+                PKR {nextInstallmentDue.toLocaleString()}
               </p>
             </div>
             <div className="glass rounded-2xl p-4 border border-gray-200">
@@ -213,7 +214,7 @@ export function SNPLDetails() {
           {paying
             ? 'Processing Payment...'
             : nextInstallment
-              ? `Pay PKR ${(nextInstallment.amount || 0).toLocaleString()} Now`
+              ? `Pay PKR ${nextInstallmentDue.toLocaleString()} Now`
               : 'Loan Fully Repaid'}
         </motion.button>
       </div>

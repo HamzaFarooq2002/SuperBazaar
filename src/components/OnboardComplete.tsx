@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
+import { useAuth } from '../hooks/useAuth';
 import { CheckCircle, TrendingUp, Award } from 'lucide-react';
 import svgPaths from "../imports/svg-wlq7du9dx6";
 
@@ -38,27 +39,41 @@ function StatusBar() {
 
 export function OnboardComplete() {
   const { navigateTo, userType } = useContext(AppContext);
+  const { user } = useAuth();
+  const uploadedDocTypes = new Set((user?.kycData?.documents || []).map((d: any) => d.type));
+
+  const verificationState = {
+    identity: Boolean(user?.kycData?.cnic),
+    phone: Boolean(user?.isPhoneVerified),
+    biometric: Boolean(user?.kycData?.fingerprintVerified),
+    docs:
+      userType === 'customer'
+        ? true
+        : uploadedDocTypes.has('ntn_certificate') &&
+          uploadedDocTypes.has('business_registration') &&
+          uploadedDocTypes.has('bank_statement')
+  };
 
   const verifications = userType === 'customer'
     ? [
-        { text: 'Identity verified with NADRA', icon: CheckCircle },
-        { text: 'Mobile number confirmed', icon: CheckCircle },
-        { text: 'Account security enabled', icon: CheckCircle }
+        { text: verificationState.identity ? 'Identity submitted' : 'Identity not submitted', icon: CheckCircle, ok: verificationState.identity },
+        { text: verificationState.phone ? 'Mobile number verified' : 'Mobile verification skipped', icon: CheckCircle, ok: verificationState.phone },
+        { text: verificationState.biometric ? 'Biometric verified' : 'Biometric skipped', icon: CheckCircle, ok: verificationState.biometric }
       ]
     : [
-        { text: 'Identity verified with NADRA', icon: CheckCircle },
-        { text: 'Mobile number confirmed', icon: CheckCircle },
-        { text: 'Business documents verified', icon: CheckCircle }
+        { text: verificationState.identity ? 'Identity submitted' : 'Identity not submitted', icon: CheckCircle, ok: verificationState.identity },
+        { text: verificationState.phone ? 'Mobile number verified' : 'Mobile verification skipped', icon: CheckCircle, ok: verificationState.phone },
+        { text: verificationState.docs ? 'Business documents uploaded' : 'Business documents skipped', icon: CheckCircle, ok: verificationState.docs }
       ];
 
   const benefits = userType === 'customer' 
     ? [
         { text: 'Shop products and pay in installments', icon: TrendingUp },
-        { text: 'Access instant nano loans up to PKR 50,000', icon: Award }
+        { text: 'Access BNPL at checkout when eligible', icon: Award }
       ]
     : [
         { text: 'Browse suppliers and get SNPL terms', icon: TrendingUp },
-        { text: 'Build your credit score with every transaction', icon: Award }
+        { text: 'Unlock merchant nano-loan tiers as your score improves', icon: Award }
       ];
 
   return (
@@ -136,7 +151,7 @@ export function OnboardComplete() {
                     transition={{ delay: 0.5 + index * 0.1 }}
                     className="flex items-center gap-2"
                   >
-                    <div className="w-[10px] h-[10px] rounded-full bg-[#90EE90] flex-shrink-0"></div>
+                    <div className={`w-[10px] h-[10px] rounded-full flex-shrink-0 ${item.ok ? 'bg-[#90EE90]' : 'bg-[#ffcc80]'}`}></div>
                     <p className="text-[#e1f4e3] text-[11px] font-medium tracking-[0.44px] leading-[1.5] text-left">
                       {item.text}
                     </p>
@@ -146,6 +161,10 @@ export function OnboardComplete() {
             </div>
           </motion.div>
         )}
+
+        <div className="rounded-[10px] bg-white/10 p-3 text-[11px] text-[#e1f4e3] leading-5 mb-3">
+          Incomplete KYC lowers your credit score and can block SNPL/BNPL eligibility until improved.
+        </div>
 
         {/* Benefits */}
         <div className="space-y-3 mb-8">

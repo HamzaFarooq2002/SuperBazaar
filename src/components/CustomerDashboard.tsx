@@ -4,7 +4,7 @@ import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
-import { ShoppingBag, CreditCard, Gift, TrendingUp, Package, Wallet, Bell, User, ChevronRight, Star, Zap } from 'lucide-react';
+import { ShoppingBag, Gift, Package, Wallet, User, ChevronRight, Star } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function CustomerDashboard() {
@@ -81,7 +81,7 @@ export function CustomerDashboard() {
   const quickActions = [
     { icon: ShoppingBag, label: 'Shop Now', color: 'from-[#3D8A75] to-[#2d6b5c]', screen: 'customer-marketplace' as const },
     { icon: Package, label: 'My Orders', color: 'from-[#102542] to-[#3D8A75]', screen: 'order-tracking' as const },
-    { icon: Wallet, label: 'Nano Loan', color: 'from-purple-600 to-purple-800', screen: 'nano-loan' as const },
+    { icon: Wallet, label: 'Payments', color: 'from-[#102542] to-[#3D8A75]', screen: 'payments-main' as const },
     { icon: Gift, label: 'Rewards', color: 'from-orange-500 to-orange-700', screen: 'rewards' as const }
   ];
 
@@ -162,30 +162,6 @@ export function CustomerDashboard() {
             </motion.button>
           ))}
         </div>
-
-        {/* Nano Loan Offer */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          onClick={() => navigateTo('nano-loan')}
-          className="bg-gradient-to-r from-purple-600 to-purple-800 rounded-2xl p-5 mb-6 cursor-pointer hover:shadow-xl transition-shadow"
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-5 h-5 text-yellow-300" />
-                <p className="text-yellow-300 text-sm">Instant Approval</p>
-              </div>
-              <p className="text-white text-[20px] mb-2">Get Nano Loan</p>
-              <p className="text-white/80 text-sm mb-3">Up to PKR 50,000 with 5% cashback</p>
-              <button className="px-4 py-2 bg-white text-purple-700 rounded-lg text-sm hover:bg-white/90 transition-colors">
-                Apply Now
-              </button>
-            </div>
-            <CreditCard className="w-12 h-12 text-white/30" />
-          </div>
-        </motion.div>
 
         {/* Featured Products */}
         <motion.div
