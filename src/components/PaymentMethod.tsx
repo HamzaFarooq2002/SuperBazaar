@@ -28,6 +28,25 @@ export function PaymentMethod() {
 
   const orderTotal = totalPrice + DELIVERY_FEE;
 
+  const getOrCreateSNPLCreditLine = async (requiredAmount: number) => {
+    const existing = await api.credit.getCreditLines();
+    if (existing.success) {
+      const lines = existing.data?.creditLines || existing.data || [];
+      const eligible = lines.find(
+        (line: any) =>
+          line.type === 'snpl' &&
+          (line.status === 'approved' || line.status === 'active') &&
+          (line.availableCredit || 0) >= requiredAmount
+      );
+      if (eligible?._id) return eligible._id;
+    }
+
+    const created = await api.credit.applySNPL(requiredAmount);
+    if (!created.success) return null;
+    const newLine = created.data?.creditLine || created.data;
+    return newLine?._id || null;
+  };
+
   useEffect(() => {
     const checkSnplEligibility = async () => {
       setCheckingSnpl(true);
@@ -129,7 +148,7 @@ export function PaymentMethod() {
       const street = shippingFormData?.address ?? user?.businessAddress ?? 'Address not specified';
       const city = shippingFormData?.city ?? 'Karachi';
 
-      const orderData = {
+      const orderData: any = {
         items: items.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -146,6 +165,14 @@ export function PaymentMethod() {
           country: 'Pakistan'
         }
       };
+
+      if (apiPaymentMethod === 'snpl') {
+        const creditLineId = await getOrCreateSNPLCreditLine(orderTotal);
+        if (!creditLineId) {
+          throw new Error('SNPL approval is required before placing this order.');
+        }
+        orderData.useCreditLine = creditLineId;
+      }
 
       // Debug logging
       console.log('🛒 Cart Items:', items);

@@ -31,6 +31,7 @@ import {
   TransactionsList,
   TransactionDetails,
   MerchantProducts,
+  OpenBankingJourney,
 } from './features/merchant/pages';
 
 // Supplier feature screens
@@ -45,6 +46,8 @@ import {
   SNPLDetails,
   Payments,
   PaymentsMain,
+  BNPLApplication,
+  BNPLApproved,
 } from './features/credit/pages';
 
 // Profile feature screens
@@ -99,6 +102,9 @@ export type Screen =
   | 'payments'
   | 'payments-main'
   | 'snpl-details'
+  | 'bnpl-application'
+  | 'bnpl-approved'
+  | 'open-banking-journey'
   | 'marketplace'
   | 'product-detail'
   | 'shopping-cart'
@@ -221,6 +227,12 @@ export default function App() {
         return <PaymentsMain key="payments-main" />;
       case 'snpl-details':
         return <SNPLDetails key="snpl-details" />;
+      case 'bnpl-application':
+        return <BNPLApplication key="bnpl-application" />;
+      case 'bnpl-approved':
+        return <BNPLApproved key="bnpl-approved" />;
+      case 'open-banking-journey':
+        return <OpenBankingJourney key="open-banking-journey" />;
       case 'marketplace':
         return <Marketplace key="marketplace" />;
       case 'product-detail':

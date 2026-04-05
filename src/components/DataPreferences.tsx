@@ -40,8 +40,7 @@ export function DataPreferences() {
 
   const handleAuthorize = () => {
     setShowAuthModal(false);
-    // In a real app, this would trigger the Open Banking flow
-    navigateTo('settings');
+    navigateTo('open-banking-journey');
   };
 
   return (
