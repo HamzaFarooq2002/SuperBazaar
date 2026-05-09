@@ -87,6 +87,14 @@ const syncSupplierVerificationStore = async (user) => {
 // @access  Public
 const signup = async (req, res) => {
   try {
+    if (!process.env.JWT_SECRET) {
+      console.error('Signup refused: JWT_SECRET is not set (configure it on Render).');
+      return res.status(503).json({
+        success: false,
+        message: 'Authentication service is not configured on the server.'
+      });
+    }
+
     const { name, email, phone, password, userType, businessName, businessAddress } = req.body;
     
     // Validate required fields
@@ -179,6 +187,14 @@ const signup = async (req, res) => {
 // @access  Public
 const login = async (req, res) => {
   try {
+    if (!process.env.JWT_SECRET) {
+      console.error('Login refused: JWT_SECRET is not set (configure it on Render).');
+      return res.status(503).json({
+        success: false,
+        message: 'Authentication service is not configured on the server.'
+      });
+    }
+
     const { email, password } = req.body;
     
     if (!email || !password) {
