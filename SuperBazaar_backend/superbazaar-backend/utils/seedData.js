@@ -193,7 +193,21 @@ async function seedDatabase() {
       businessType: 'general_store',
       isVerified: true
     });
-    console.log('✅ Created store');
+    await Store.insertMany(suppliers.map((supplier) => ({
+      owner: supplier._id,
+      name: supplier.businessName || supplier.name,
+      address: {
+        street: supplier.businessAddress || '',
+        city: 'Karachi',
+        country: 'Pakistan'
+      },
+      phone: supplier.phone,
+      email: supplier.email,
+      businessType: supplier.businessType || 'other',
+      isVerified: supplier.kycStatus === 'verified',
+      verifiedAt: supplier.kycStatus === 'verified' ? new Date() : undefined
+    })));
+    console.log('✅ Created merchant and supplier stores');
     
     // Create products with different suppliers
     console.log('📦 Creating products...');
@@ -208,33 +222,6 @@ async function seedDatabase() {
       createdProducts.push(product);
     }
     console.log(`✅ Created ${createdProducts.length} products`);
-    
-    // Create SNPL credit line for merchant
-    console.log('💳 Creating SNPL credit line...');
-    const snpl = new CreditLine({
-      user: merchant._id,
-      userName: merchant.name,
-      type: 'snpl',
-      creditLimit: 500000,
-      availableCredit: 350000,
-      usedCredit: 150000,
-      principalAmount: 150000,
-      interestRate: 0.05,
-      tenureMonths: 4,
-      status: 'active',
-      approvedAt: new Date(),
-      creditScoreAtApplication: 720,
-      riskLevel: 'low'
-    });
-    snpl.generateInstallments();
-    
-    // Mark some installments as paid
-    snpl.installments[0].status = 'paid';
-    snpl.installments[0].paidDate = new Date();
-    snpl.installments[0].paidAmount = snpl.installments[0].amount;
-    
-    await snpl.save();
-    console.log('✅ Created SNPL credit line');
     
     // Create sample transactions
     console.log('💰 Creating transactions...');

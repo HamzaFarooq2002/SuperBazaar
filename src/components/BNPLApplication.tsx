@@ -23,7 +23,7 @@ export function BNPLApplication() {
       <div className="min-h-screen bg-white flex items-center justify-center px-6">
         <div className="text-center">
           <p className="text-[#102542] mb-2">BNPL is available for customers only.</p>
-          <p className="text-gray-500 text-sm mb-4">Merchants can use SNPL and Nano Loans instead.</p>
+          <p className="text-gray-500 text-sm mb-4">Merchants can use bank-facilitated inventory financing and Nano Loans instead.</p>
           <button
             onClick={() => navigateTo(homeDashboard)}
             className="px-4 py-2 rounded-lg bg-[#3D8A75] text-white"

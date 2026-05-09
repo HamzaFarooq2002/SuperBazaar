@@ -4,6 +4,12 @@
 
 const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
 const ALLOW_SCORING_FALLBACK = process.env.ALLOW_SCORING_FALLBACK !== 'false';
+class ScoringServiceUnavailableError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ScoringServiceUnavailableError';
+  }
+}
 
 // ─── Feature builders ────────────────────────────────────────────────────────
 
@@ -352,21 +358,10 @@ const scoreUser = async (user, transactions = [], creditLines = [], store = null
       }
     };
   } catch (error) {
-    if (!ALLOW_SCORING_FALLBACK) {
-      throw error;
+    if (ALLOW_SCORING_FALLBACK) {
+      console.warn(`Fallback scoring is disabled by redesign policy, upstream error: ${error.message}`);
     }
-
-    console.warn(`FastAPI scoring unavailable, using fallback scorer: ${error.message}`);
-    const fallback = fallbackScoreUser(features, user);
-    return {
-      ...fallback,
-      factors: {
-        paymentHistory: 0,
-        creditUtilization: features.credit_utilization ?? features.bnpl_utilization ?? 0,
-        accountAge: 0,
-        transactionVolume: features.monthly_income_pkr ?? 0
-      }
-    };
+    throw new ScoringServiceUnavailableError(error.message);
   }
 };
 
@@ -396,6 +391,7 @@ const assessRiskLevel = (band) => {
 
 module.exports = {
   scoreUser,
+  ScoringServiceUnavailableError,
   calculateCreditLimit,
   assessRiskLevel
 };

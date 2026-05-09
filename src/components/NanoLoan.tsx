@@ -4,6 +4,7 @@ import { AppContext, Screen } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { ArrowLeft, Wallet, TrendingUp, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+import { NanoConsentModal } from './credit/NanoConsentModal';
 
 export function NanoLoan() {
   const { navigateTo } = useContext(AppContext);
@@ -25,17 +26,9 @@ export function NanoLoan() {
   const [creditScore, setCreditScore] = useState(0);
   const [txCount, setTxCount] = useState(0);
   const [tier, setTier] = useState<any>(null);
-
-  const tiers = [
-    { key: 'tier_1', label: 'Tier 1', minScore: 640, maxAmount: 25000, tenureMonths: 2, interestRate: 3.2 },
-    { key: 'tier_2', label: 'Tier 2', minScore: 660, maxAmount: 40000, tenureMonths: 2, interestRate: 3.1 },
-    { key: 'tier_3', label: 'Tier 3', minScore: 680, maxAmount: 50000, tenureMonths: 3, interestRate: 3.0 },
-    { key: 'tier_4', label: 'Tier 4', minScore: 700, maxAmount: 65000, tenureMonths: 3, interestRate: 2.9 },
-    { key: 'tier_5', label: 'Tier 5', minScore: 725, maxAmount: 80000, tenureMonths: 4, interestRate: 2.8 },
-    { key: 'tier_6', label: 'Tier 6', minScore: 755, maxAmount: 100000, tenureMonths: 4, interestRate: 2.7 },
-    { key: 'tier_7', label: 'Tier 7', minScore: 790, maxAmount: 130000, tenureMonths: 5, interestRate: 2.6 },
-    { key: 'tier_8', label: 'Tier 8', minScore: 830, maxAmount: 160000, tenureMonths: 6, interestRate: 2.5 }
-  ];
+  const [tiers, setTiers] = useState<any[]>([]);
+  const [tenureOptions, setTenureOptions] = useState<any[]>([]);
+  const [consentOpen, setConsentOpen] = useState(false);
 
   const minLoan = 10000;
   const maxLoan = tier?.maxAmount || 25000;
@@ -47,9 +40,10 @@ export function NanoLoan() {
       setError('');
       try {
         await refreshUser();
-        const [scoreRes, txRes] = await Promise.all([
+        const [scoreRes, txRes, tierRes] = await Promise.all([
           api.credit.getCreditScore(),
-          api.users.getTransactions()
+          api.users.getTransactions(),
+          api.credit.getNanoTiers()
         ]);
 
         const score = scoreRes?.data?.creditScore?.score || 0;
@@ -57,7 +51,10 @@ export function NanoLoan() {
         setCreditScore(score);
         setTxCount(txns.filter((t: any) => t.status === 'completed').length);
 
-        const eligibleTier = [...tiers].reverse().find((t) => score >= t.minScore) || null;
+        const apiTiers = tierRes?.data?.tiers || [];
+        setTiers(apiTiers);
+        setTenureOptions(tierRes?.data?.tenureOptions || []);
+        const eligibleTier = [...apiTiers].reverse().find((t: any) => score >= t.minScore) || null;
         setTier(eligibleTier);
         const allowedMax = eligibleTier?.maxAmount || 25000;
         setLoanAmount((prev) => Math.min(Math.max(prev, minLoan), allowedMax));
@@ -73,9 +70,9 @@ export function NanoLoan() {
 
   const loanDetails = tier
     ? {
-        tenure: tier.tenureMonths,
-        interest: tier.interestRate,
-        monthlyPayment: Math.round((loanAmount * (1 + tier.interestRate / 100)) / tier.tenureMonths)
+        tenure: tenureOptions?.[0]?.months || 2,
+        interest: (tier.serviceChargeRate || 0) * 100,
+        monthlyPayment: Math.round((loanAmount * (1 + (tier.serviceChargeRate || 0))) / (tenureOptions?.[0]?.months || 2))
       }
     : null;
 
@@ -110,7 +107,16 @@ export function NanoLoan() {
     setLoading(true);
     setError('');
     try {
-      const response = await api.credit.applyNanoLoan({ requestedAmount: loanAmount });
+      const response = await api.credit.applyNanoLoan({
+        requestedAmount: loanAmount,
+        tenureMonths: tenureOptions?.[0]?.months || 2,
+        consent_acknowledged: true,
+        consent_payload: {
+          requestedAmount: loanAmount,
+          serviceChargeRate: tier?.serviceChargeRate || 0,
+          serviceChargeAmount: loanAmount * (tier?.serviceChargeRate || 0)
+        }
+      });
       if (response.success) {
         setDisbursedAmount(response.data?.disbursedAmount || loanAmount);
         setApproved(true);
@@ -256,7 +262,7 @@ export function NanoLoan() {
             {tiers.map((t) => (
               <div key={t.key} className={`rounded-lg p-2 ${tier?.key === t.key ? 'bg-[#e1f4e3]' : 'bg-white/60'}`}>
                 <p className="text-[#102542]">
-                  {t.label}: score {t.minScore}+ | up to PKR {t.maxAmount.toLocaleString()} | {t.tenureMonths} months | {t.interestRate}% interest
+                  {t.tier}: score {t.minScore}+ | up to PKR {t.maxAmount.toLocaleString()} | {(t.serviceChargeRate * 100).toFixed(2)}% service charge
                 </p>
               </div>
             ))}
@@ -364,6 +370,7 @@ export function NanoLoan() {
           {loading ? 'Processing...' : 'Apply for Nano Loan'}
         </button>
       </div>
+      <NanoConsentModal open={consentOpen} onClose={() => setConsentOpen(false)} onAccept={() => setConsentOpen(false)} payload={{ serviceChargeRate: tier?.serviceChargeRate }} />
     </div>
   );
 }

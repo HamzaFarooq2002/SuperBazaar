@@ -5,255 +5,93 @@ import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import { useOrder } from '../hooks/useOrder';
 import api from '../services/api';
-import { ArrowLeft, Wallet, Banknote, CreditCard, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Banknote, CreditCard, Landmark, ChevronRight } from 'lucide-react';
 import { DELIVERY_FEE } from '../config/pricing';
-
-const SNPL_MIN_SCORE = 680;
-const BNPL_MIN_SCORE = 620;
-const SNPL_TENURE_MONTHS = 4;
-const SNPL_INTEREST_RATE = 0.05;
 
 export function PaymentMethod() {
   const { navigateTo } = useContext(AppContext);
   const { items, totalPrice, clearCart } = useCart();
   const { user } = useAuth();
   const { setCurrentOrder, shippingFormData, setShippingFormData } = useOrder();
-  const [selectedMethod, setSelectedMethod] = useState<'cash' | 'snpl' | 'bnpl' | null>('cash');
+  const [selectedMethod, setSelectedMethod] = useState<'cash' | 'bnpl' | 'bank_financing' | null>('cash');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [snplEligible, setSnplEligible] = useState(false);
-  const [snplReason, setSnplReason] = useState('');
-  const [checkingSnpl, setCheckingSnpl] = useState(true);
-  const [bnplEligible, setBnplEligible] = useState(false);
-  const [bnplReason, setBnplReason] = useState('');
-  const [checkingBnpl, setCheckingBnpl] = useState(true);
+  const [bnplEligibility, setBnplEligibility] = useState<any>(null);
+  const [activeBankFinancing, setActiveBankFinancing] = useState<any>(null);
 
   const isCustomer = user?.userType === 'customer';
   const isMerchant = user?.userType === 'merchant';
-
   const orderTotal = totalPrice + DELIVERY_FEE;
-  const snplTotalRepayable = Math.round(orderTotal * (1 + SNPL_INTEREST_RATE));
-  const snplInstallmentAmount = Math.ceil(snplTotalRepayable / SNPL_TENURE_MONTHS);
-
-  const getOrCreateSNPLCreditLine = async (requiredAmount: number) => {
-    if (!isMerchant) return null;
-    const existing = await api.credit.getCreditLines();
-    if (existing.success) {
-      const lines = existing.data?.creditLines || existing.data || [];
-      const eligible = lines.find(
-        (line: any) =>
-          line.type === 'snpl' &&
-          (line.status === 'approved' || line.status === 'active') &&
-          (line.availableCredit || 0) >= requiredAmount
-      );
-      if (eligible?._id) return eligible._id;
-    }
-
-    const created = await api.credit.applySNPL(requiredAmount);
-    if (!created.success) return null;
-    const newLine = created.data?.creditLine || created.data;
-    return newLine?._id || null;
-  };
-
-  const getOrCreateBNPLCreditLine = async (requiredAmount: number) => {
-    if (!isCustomer) return null;
-    const existing = await api.credit.getCreditLines();
-    if (existing.success) {
-      const lines = existing.data?.creditLines || existing.data || [];
-      const eligible = lines.find(
-        (line: any) =>
-          line.type === 'bnpl' &&
-          (line.status === 'approved' || line.status === 'active') &&
-          (line.availableCredit || 0) >= requiredAmount
-      );
-      if (eligible?._id) return eligible._id;
-    }
-
-    const created = await api.credit.applyBNPL({ purchaseAmount: requiredAmount });
-    if (!created.success) return null;
-    const newLine = created.data?.creditLine || created.data;
-    return newLine?._id || null;
-  };
 
   useEffect(() => {
-    const checkSnplEligibility = async () => {
-      setCheckingSnpl(true);
-      try {
-        const [scoreResponse, creditLinesResponse, txResponse] = await Promise.all([
-          api.credit.getCreditScore(),
-          api.credit.getCreditLines(),
-          api.users.getTransactions(),
-        ]);
-
-        const creditScore = scoreResponse?.data?.creditScore?.score ?? 0;
-        const suggestedLimit = scoreResponse?.data?.suggestedCreditLimit ?? 0;
-        const lines = creditLinesResponse?.data?.creditLines || creditLinesResponse?.data || [];
-        const activeSnplLines = (Array.isArray(lines) ? lines : []).filter(
-          (line: any) => line.type === 'snpl' && (line.status === 'approved' || line.status === 'active')
-        );
-        const availableLimit = activeSnplLines.reduce(
-          (sum: number, line: any) => sum + (line.availableCredit || 0),
-          0
-        );
-        const effectiveLimit = availableLimit > 0 ? availableLimit : suggestedLimit;
-        const completedTxns =
-          (txResponse?.data?.transactions || txResponse?.data || []).filter((t: any) => t.status === 'completed').length;
-
-        if (!isMerchant) {
-          setSnplEligible(false);
-          setSnplReason('SNPL is available for merchants only');
-        } else if (user?.kycStatus !== 'verified') {
-          setSnplEligible(false);
-          setSnplReason('Verified KYC is required');
-        } else if (completedTxns < 3) {
-          setSnplEligible(false);
-          setSnplReason('Build more transaction history');
-        } else if (creditScore <= 0) {
-          setSnplEligible(false);
-          setSnplReason('Generate your credit score first');
-        } else if (creditScore < SNPL_MIN_SCORE) {
-          setSnplEligible(false);
-          setSnplReason(`Minimum score ${SNPL_MIN_SCORE} required`);
-        } else if (effectiveLimit < orderTotal) {
-          setSnplEligible(false);
-          setSnplReason('Insufficient credit limit');
-        } else {
-          setSnplEligible(true);
-          setSnplReason('');
-        }
-      } catch (eligibilityError) {
-        setSnplEligible(false);
-        setSnplReason('Unable to verify SNPL eligibility');
-      } finally {
-        setCheckingSnpl(false);
-      }
-    };
-
-    checkSnplEligibility();
-  }, [orderTotal]);
-
-  useEffect(() => {
-    if (!isCustomer) {
-      setCheckingBnpl(false);
-      return;
-    }
+    if (!isCustomer) return;
     const checkBnplEligibility = async () => {
-      setCheckingBnpl(true);
       try {
-        const [scoreResponse, creditLinesResponse, txResponse] = await Promise.all([
-          api.credit.getCreditScore(),
-          api.credit.getCreditLines(),
-          api.users.getTransactions(),
-        ]);
-
-        const creditScore = scoreResponse?.data?.creditScore?.score ?? 0;
-        const suggestedLimit = scoreResponse?.data?.suggestedCreditLimit ?? 0;
-        const lines = creditLinesResponse?.data?.creditLines || creditLinesResponse?.data || [];
-        const activeBnplLines = (Array.isArray(lines) ? lines : []).filter(
-          (line: any) => line.type === 'bnpl' && (line.status === 'approved' || line.status === 'active')
-        );
-        const availableLimit = activeBnplLines.reduce(
-          (sum: number, line: any) => sum + (line.availableCredit || 0),
-          0
-        );
-        const effectiveLimit = availableLimit > 0 ? availableLimit : suggestedLimit;
-        const completedTxns =
-          (txResponse?.data?.transactions || txResponse?.data || []).filter((t: any) => t.status === 'completed').length;
-
-        if (!isCustomer) {
-          setBnplEligible(false);
-          setBnplReason('BNPL is available for customers only');
-        } else if (user?.kycStatus !== 'verified') {
-          setBnplEligible(false);
-          setBnplReason('Verified KYC is required');
-        } else if (completedTxns < 3) {
-          setBnplEligible(false);
-          setBnplReason('Need at least 3 completed transactions');
-        } else if (creditScore <= 0) {
-          setBnplEligible(false);
-          setBnplReason('Generate your credit score first');
-        } else if (creditScore < BNPL_MIN_SCORE) {
-          setBnplEligible(false);
-          setBnplReason(`Minimum score ${BNPL_MIN_SCORE} required`);
-        } else if (effectiveLimit < orderTotal) {
-          setBnplEligible(false);
-          setBnplReason('Insufficient credit limit');
-        } else {
-          setBnplEligible(true);
-          setBnplReason('');
-        }
+        const categories = items.map((i) => i.category).filter(Boolean).join(',');
+        const response = await api.bnpl.getEligibility({ cartTotal: orderTotal, categories });
+        setBnplEligibility(response?.data || null);
       } catch {
-        setBnplEligible(false);
-        setBnplReason('Unable to verify BNPL eligibility');
-      } finally {
-        setCheckingBnpl(false);
+        setBnplEligibility({ eligible: false });
       }
     };
-
     checkBnplEligibility();
-  }, [orderTotal, isCustomer]);
+  }, [orderTotal, isCustomer, items]);
+
+  useEffect(() => {
+    if (!isMerchant) return;
+    const checkActiveFinancing = async () => {
+      try {
+        const response = await api.bankFinancing.list();
+        const apps = response?.data?.applications || [];
+        const active = apps.find((app: any) => ['OFFER_PENDING', 'OFFER_ACCEPTED', 'DISBURSED', 'REPAYING'].includes(app.applicationStatus));
+        setActiveBankFinancing(active || null);
+      } catch {
+        setActiveBankFinancing(null);
+      }
+    };
+    checkActiveFinancing();
+  }, [isMerchant]);
 
   const handleConfirmPayment = async () => {
     if (!selectedMethod) return;
-
     setLoading(true);
     setError('');
 
     try {
-      const apiPaymentMethod = selectedMethod;
-
-      // Build shipping address from Checkout form if available, else fallbacks
-      const street = shippingFormData?.address ?? user?.businessAddress ?? 'Address not specified';
-      const city = shippingFormData?.city ?? 'Karachi';
-
       const orderData: any = {
         items: items.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
           price: item.price
         })),
-        paymentMethod: apiPaymentMethod,
+        paymentMethod: selectedMethod,
         shippingAddress: {
           recipientName: shippingFormData?.name || user?.name || '',
           phone: user?.phone || '',
-          street,
-          city,
+          street: shippingFormData?.address || user?.businessAddress || 'Address not specified',
+          city: shippingFormData?.city || 'Karachi',
           state: shippingFormData?.area || '',
           postalCode: '75500',
           country: 'Pakistan'
         }
       };
 
-      if (apiPaymentMethod === 'snpl') {
-        const creditLineId = await getOrCreateSNPLCreditLine(orderTotal);
-        if (!creditLineId) {
-          throw new Error('SNPL approval is required before placing this order.');
-        }
-        orderData.useCreditLine = creditLineId;
+      if (selectedMethod === 'bnpl') {
+        sessionStorage.setItem('pendingBnplOrder', JSON.stringify(orderData));
+        navigateTo('bnpl-plan-selection');
+        return;
       }
 
-      if (apiPaymentMethod === 'bnpl') {
-        const creditLineId = await getOrCreateBNPLCreditLine(orderTotal);
-        if (!creditLineId) {
-          throw new Error('BNPL approval is required before placing this order.');
+      if (selectedMethod === 'bank_financing') {
+        if (activeBankFinancing) {
+          navigateTo('bank-financing-dashboard');
+          return;
         }
-        orderData.useCreditLine = creditLineId;
-      }
-
-      // Debug logging
-      console.log('🛒 Cart Items:', items);
-      console.log('📦 Order Data Being Sent:', orderData);
-      console.log('🆔 Product IDs:', orderData.items.map(i => i.productId));
-
-      // Validate product IDs before sending
-      const invalidItems = orderData.items.filter(item => !item.productId || item.productId === 'undefined' || item.productId === '1');
-      if (invalidItems.length > 0) {
-        console.error('❌ Invalid items detected:', invalidItems);
-        throw new Error(`Invalid product IDs detected. Please clear your cart and add products fresh from marketplace. Invalid items: ${invalidItems.length}`);
+        navigateTo('bank-financing-select');
+        return;
       }
 
       const response = await api.orders.createOrder(orderData);
-
       if (response.success) {
         setCurrentOrder(response.data.order);
         setShippingFormData(null);
@@ -261,14 +99,9 @@ export function PaymentMethod() {
         navigateTo('order-confirmation');
       }
     } catch (err: any) {
-      // Extract the most specific error message available
-      // The api.js interceptor wraps errors as: { success, error: { message, status, data } }
-      // The backend returns: { success, message, error: "detailed error string" }
-      const backendError = err?.error?.data?.error;  // The detailed error from backend
+      const backendError = err?.error?.data?.error;
       const backendMessage = err?.error?.data?.message || err?.error?.message;
-      const errorMessage = backendError || backendMessage || err?.message || 'Failed to create order';
-      setError(errorMessage);
-      console.error('❌ Order creation error:', JSON.stringify(err, null, 2));
+      setError(backendError || backendMessage || err?.message || 'Failed to create order');
     } finally {
       setLoading(false);
     }
@@ -276,22 +109,28 @@ export function PaymentMethod() {
 
   const paymentMethods = [
     ...(isMerchant ? [{
-      id: 'snpl' as const,
-      icon: Wallet,
-      title: 'Stock Now Pay Later (SNPL)',
-      description: 'Use your approved merchant credit line for this order',
-      badge: snplEligible ? 'Available' : 'Unavailable',
+      id: 'bank_financing' as const,
+      icon: Landmark,
+      title: 'Stock Now Pay Later via Bank',
+      description: activeBankFinancing
+        ? 'You already have an active financing. Repay it before applying again.'
+        : 'Apply for inventory financing from your selected bank',
+      badge: activeBankFinancing ? 'Active' : 'Bank-facilitated',
+      badgeStyle: activeBankFinancing ? 'bg-[#3D8A75]/15 text-[#3D8A75]' : 'bg-yellow-100 text-yellow-700',
       color: 'from-[#102542] to-[#3D8A75]',
-      details: snplEligible ? 'Eligible for this order' : (snplReason || 'Not eligible')
+      details: activeBankFinancing
+        ? `Tap to view your active ${activeBankFinancing.selectedBank} application`
+        : 'Bank-issued pricing and tenure · KIBOR + spread'
     }] : []),
-    ...(isCustomer ? [{
+    ...(isCustomer && bnplEligibility?.eligible ? [{
       id: 'bnpl' as const,
       icon: CreditCard,
       title: 'Buy Now Pay Later (BNPL)',
-      description: 'Split your purchase into easy installments',
-      badge: bnplEligible ? 'Available' : 'Unavailable',
+      description: 'SuperBazaar Pay Later with 7/14-day plans',
+      badge: 'Available',
+      badgeStyle: 'bg-yellow-100 text-yellow-700',
       color: 'from-[#102542] to-[#3D8A75]',
-      details: bnplEligible ? 'Eligible for this order' : (bnplReason || 'Not eligible')
+      details: `${bnplEligibility?.tier || ''} tier`
     }] : []),
     {
       id: 'cash' as const,
@@ -299,6 +138,7 @@ export function PaymentMethod() {
       title: 'Cash on Delivery',
       description: 'Pay when you receive your order',
       badge: null,
+      badgeStyle: '',
       color: 'from-gray-600 to-gray-800',
       details: 'Available in selected areas'
     }
@@ -306,93 +146,30 @@ export function PaymentMethod() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e8f0f2] to-[#d4e8e4] pb-32">
-      {/* Header */}
       <div className="bg-white/30 backdrop-blur-md border-b border-white/40 px-6 pt-12 pb-4 sticky top-0 z-10">
         <div className="flex justify-between items-center">
-          <button 
-            onClick={() => navigateTo('checkout')}
-            className="text-[#102542] flex items-center gap-2"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
+          <button onClick={() => navigateTo('checkout')} className="text-[#102542] flex items-center gap-2"><ArrowLeft className="w-6 h-6" /></button>
           <p className="text-[#102542]">Payment Method</p>
           <div className="w-6" />
         </div>
       </div>
 
       <div className="px-6 mt-6">
-        {/* Progress Steps */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-4 mb-6"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col items-center flex-1">
-              <div className="w-8 h-8 rounded-full bg-[#3D8A75] flex items-center justify-center text-white mb-2">
-                ✓
-              </div>
-              <p className="text-[#102542] text-xs">Delivery</p>
-            </div>
-            <div className="flex-1 h-px bg-[#3D8A75]" />
-            <div className="flex flex-col items-center flex-1">
-              <div className="w-8 h-8 rounded-full bg-[#3D8A75] flex items-center justify-center text-white mb-2">
-                2
-              </div>
-              <p className="text-[#102542] text-xs">Payment</p>
-            </div>
-            <div className="flex-1 h-px bg-gray-300" />
-            <div className="flex flex-col items-center flex-1">
-              <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 mb-2">
-                3
-              </div>
-              <p className="text-gray-500 text-xs">Confirm</p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Order Amount */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-gradient-to-br from-[#102542] to-[#3D8A75] rounded-2xl p-6 mb-6 text-white"
-        >
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-gradient-to-br from-[#102542] to-[#3D8A75] rounded-2xl p-6 mb-6 text-white">
           <p className="text-white/80 text-sm mb-2">Total Amount</p>
           <p className="text-[32px]">PKR {orderTotal.toLocaleString()}</p>
         </motion.div>
 
-        {/* Payment Methods */}
         <div className="space-y-4 mb-6">
           <p className="text-[#102542] mb-4">Select Payment Method</p>
-
-          <div className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-4">
-            <p className="text-[#102542] text-sm font-medium mb-2">How credit lines work</p>
-            <p className="text-gray-600 text-xs leading-5">
-              SNPL/BNPL access is approved only when your credit score and available limit meet policy thresholds.
-              Scores improve with verified KYC, healthy transaction activity, and timely repayments.
-            </p>
-          </div>
-          
           {paymentMethods.map((method, index) => (
             <motion.div
               key={method.id}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 + index * 0.1 }}
-              onClick={() => {
-                if (method.id === 'snpl' && (!snplEligible || checkingSnpl)) return;
-                if (method.id === 'bnpl' && (!bnplEligible || checkingBnpl)) return;
-                setSelectedMethod(method.id);
-              }}
-              className={`bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-5 transition-all ${
-                (method.id === 'snpl' && (!snplEligible || checkingSnpl)) ||
-                (method.id === 'bnpl' && (!bnplEligible || checkingBnpl))
-                  ? 'opacity-50 cursor-not-allowed'
-                  : 'cursor-pointer hover:bg-white/70 hover:scale-[1.02]'
-              } ${
-                selectedMethod === method.id ? 'ring-2 ring-[#3D8A75] bg-white/70' : ''
-              }`}
+              onClick={() => setSelectedMethod(method.id)}
+              className={`bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-5 cursor-pointer hover:bg-white/70 transition-all ${selectedMethod === method.id ? 'ring-2 ring-[#3D8A75] bg-white/70' : ''}`}
             >
               <div className="flex items-start gap-4">
                 <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${method.color} flex items-center justify-center flex-shrink-0 shadow-md`}>
@@ -403,108 +180,31 @@ export function PaymentMethod() {
                     <div>
                       <p className="text-[#102542] mb-1">{method.title}</p>
                       {method.badge && (
-                        <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] rounded-full">
-                          {(checkingSnpl && method.id === 'snpl') || (checkingBnpl && method.id === 'bnpl') ? 'Checking...' : method.badge}
+                        <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full font-medium ${method.badgeStyle}`}>
+                          {method.badge}
                         </span>
                       )}
                     </div>
-                    <ChevronRight className={`w-5 h-5 transition-colors ${
-                      selectedMethod === method.id ? 'text-[#3D8A75]' : 'text-gray-400'
-                    }`} />
+                    <ChevronRight className={`w-5 h-5 transition-colors ${selectedMethod === method.id ? 'text-[#3D8A75]' : 'text-gray-400'}`} />
                   </div>
                   <p className="text-gray-600 text-sm mb-1">{method.description}</p>
                   <p className="text-[#3D8A75] text-xs">{method.details}</p>
                 </div>
               </div>
-
-              {method.id === 'snpl' && selectedMethod === 'snpl' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="mt-4 pt-4 border-t border-gray-200"
-                >
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Loan Amount</span>
-                      <span className="text-[#102542]">PKR {orderTotal.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Total Repayable</span>
-                      <span className="text-[#102542]">PKR {snplTotalRepayable.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Installments</span>
-                      <span className="text-[#102542]">
-                        PKR {snplInstallmentAmount.toLocaleString()} x {SNPL_TENURE_MONTHS}
-                      </span>
-                    </div>
-                    <div className="bg-[#102542]/5 rounded-lg p-2 mt-2">
-                      <p className="text-[11px] text-[#102542]">
-                        Due monthly from next month. Amount is evenly split across {SNPL_TENURE_MONTHS} due dates.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {method.id === 'bnpl' && selectedMethod === 'bnpl' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="mt-4 pt-4 border-t border-gray-200"
-                >
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Total Amount</span>
-                      <span className="text-[#102542]">PKR {orderTotal.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">Monthly Installment</span>
-                      <span className="text-[#102542]">PKR {Math.ceil(orderTotal / 3).toLocaleString()} x 3</span>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
             </motion.div>
           ))}
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl mb-4"
-          >
-            {error}
-          </motion.div>
-        )}
-
-        {/* Security Note */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-4 text-center"
-        >
-          <p className="text-[#102542] text-sm">
-            <span className="font-bold">🔒</span> Your payment information is secure and encrypted
-          </p>
-        </motion.div>
+        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl mb-4">{error}</div>}
       </div>
 
-      {/* Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-white/60 px-6 py-4">
         <button
           onClick={handleConfirmPayment}
           disabled={!selectedMethod || loading}
-          className={`w-full h-12 rounded-xl text-white font-medium transition-all ${
-            selectedMethod && !loading
-              ? 'bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] hover:shadow-lg hover:scale-[1.02]' 
-              : 'bg-white/30 text-[#102542]/40 cursor-not-allowed'
-          }`}
+          className={`w-full h-12 rounded-xl text-white font-medium transition-all ${selectedMethod && !loading ? 'bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c]' : 'bg-white/30 text-[#102542]/40 cursor-not-allowed'}`}
         >
-          {loading ? 'Creating Order...' : 'Confirm Payment Method'}
+          {loading ? 'Processing...' : 'Confirm Payment Method'}
         </button>
       </div>
     </div>

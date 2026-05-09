@@ -1,26 +1,27 @@
+const mongoose = require('mongoose');
 const CreditLine = require('../models/CreditLine');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-const { scoreUser, calculateCreditLimit, assessRiskLevel } = require('../utils/creditScoring');
+const Order = require('../models/Order');
+const Store = require('../models/Store');
+const creditConfig = require('../config/creditConfig');
+const { scoreUser, calculateCreditLimit, assessRiskLevel, ScoringServiceUnavailableError } = require('../utils/creditScoring');
 
-const MIN_SNPL_SCORE = Number(process.env.MIN_SNPL_SCORE || 680);
-const MIN_BNPL_SCORE = Number(process.env.MIN_BNPL_SCORE || 620);
 const MIN_BNPL_TXNS = Number(process.env.MIN_BNPL_TXNS || 3);
-const MIN_NANO_SCORE = Number(process.env.MIN_NANO_SCORE || 640);
 const MIN_NANO_TXNS = Number(process.env.MIN_NANO_TXNS || 3);
-const SNPL_INTEREST_RATE = Number(process.env.SNPL_INTEREST_RATE || 0.05);
-const SNPL_TENURE_MONTHS = Number(process.env.SNPL_TENURE_MONTHS || 4);
 
-const NANO_TIERS = [
-  { tier: 'tier_1', minScore: 640, maxAmount: 25000, tenureMonths: 2, interestRate: 0.032 },
-  { tier: 'tier_2', minScore: 660, maxAmount: 40000, tenureMonths: 2, interestRate: 0.031 },
-  { tier: 'tier_3', minScore: 680, maxAmount: 50000, tenureMonths: 3, interestRate: 0.03 },
-  { tier: 'tier_4', minScore: 700, maxAmount: 65000, tenureMonths: 3, interestRate: 0.029 },
-  { tier: 'tier_5', minScore: 725, maxAmount: 80000, tenureMonths: 4, interestRate: 0.028 },
-  { tier: 'tier_6', minScore: 755, maxAmount: 100000, tenureMonths: 4, interestRate: 0.027 },
-  { tier: 'tier_7', minScore: 790, maxAmount: 130000, tenureMonths: 5, interestRate: 0.026 },
-  { tier: 'tier_8', minScore: 830, maxAmount: 160000, tenureMonths: 6, interestRate: 0.025 }
-];
+const toServiceCharge = (obj = {}) => {
+  const mapped = { ...obj };
+  if (Object.prototype.hasOwnProperty.call(mapped, 'markupRate')) {
+    mapped.serviceChargeRate = mapped.markupRate;
+    delete mapped.markupRate;
+  }
+  if (Object.prototype.hasOwnProperty.call(mapped, 'markupAmount')) {
+    mapped.serviceChargeAmount = mapped.markupAmount;
+    delete mapped.markupAmount;
+  }
+  return mapped;
+};
 // @desc    Get user's credit lines
 // @route   GET /api/credit
 // @access  Private
@@ -88,127 +89,6 @@ const getCreditScore = async (req, res) => {
   }
 };
 
-// @desc    Apply for SNPL (Stock Now Pay Later)
-// @route   POST /api/credit/snpl/apply
-// @access  Private (Merchants only)
-const applySNPL = async (req, res) => {
-  try {
-    if (req.user.userType !== 'merchant') {
-      return res.status(403).json({
-        success: false,
-        message: 'SNPL is only available for merchants'
-      });
-    }
-    
-    const { requestedAmount } = req.body;
-    
-    if (!requestedAmount || requestedAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide a valid loan amount'
-      });
-    }
-    
-    // Hard-stop rejected KYC profiles; partially completed KYC is handled by score threshold.
-    if (req.user.kycStatus === 'rejected') {
-      return res.status(400).json({
-        success: false,
-        message: 'KYC is rejected. Please update your documents and try again.'
-      });
-    }
-    
-  // Always re-score via ML pipeline on application
-const transactions = await Transaction.find({
-  user: req.user.id,
-  status: 'completed'
-});
-const creditLines = await CreditLine.find({ user: req.user.id });
-const Store = require('../models/Store');
-const store = await Store.findOne({ owner: req.user.id });
-
-const scoreData = await scoreUser(req.user, transactions, creditLines, store);
-const creditScore = scoreData.score;
-
-if (creditScore < MIN_SNPL_SCORE) {
-  return res.status(400).json({
-    success: false,
-    message: `SNPL requires a minimum credit score of ${MIN_SNPL_SCORE}. Your score is ${creditScore}.`
-  });
-}
-
-req.user.creditScore = {
-  score:              scoreData.score,
-  band:               scoreData.band,
-  defaultProbability: scoreData.defaultProbability,
-  lastCalculated:     scoreData.lastCalculated,
-  factors:            scoreData.factors
-};
-await req.user.save();
-
-// Calculate credit limit
-const creditLimit = calculateCreditLimit(creditScore, scoreData.factors?.transactionVolume || 0);
-    
-    // Check if requested amount is within limit
-    if (requestedAmount > creditLimit) {
-      return res.status(400).json({
-        success: false,
-        message: `Requested amount exceeds your credit limit of PKR ${creditLimit.toLocaleString()}`
-      });
-    }
-    
-    const riskLevel = assessRiskLevel(scoreData.band);
-    const requestedTenure = Number(req.body?.tenureMonths || SNPL_TENURE_MONTHS);
-    const tenureMonths = Math.min(12, Math.max(2, requestedTenure || 4));
-    
-    // Create SNPL credit line
-    const snpl = new CreditLine({
-      user: req.user.id,
-      userName: req.user.name,
-      type: 'snpl',
-      creditLimit: creditLimit,
-      availableCredit: creditLimit,
-      usedCredit: 0,
-      principalAmount: requestedAmount,
-      interestRate: SNPL_INTEREST_RATE,
-      tenureMonths,
-      status: 'approved', // Auto-approve for MVP
-      approvedAt: Date.now(),
-      creditScoreAtApplication: creditScore,
-      riskLevel: riskLevel
-    });
-    
-    // Generate installment schedule
-    snpl.generateInstallments();
-    
-    await snpl.save();
-    
-    // Create loan disbursement transaction
-    await Transaction.create({
-      user: req.user.id,
-      type: 'loan_disbursement',
-      category: 'loan',
-      amount: requestedAmount,
-      description: 'SNPL loan disbursement',
-      relatedCreditLine: snpl._id,
-      paymentMethod: 'credit',
-      status: 'completed'
-    });
-    
-    res.status(201).json({
-      success: true,
-      message: 'SNPL application approved!',
-      data: { creditLine: snpl }
-    });
-  } catch (error) {
-    console.error('Apply SNPL error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error processing SNPL application',
-      error: error.message
-    });
-  }
-};
-
 // @desc    Apply for BNPL (Buy Now Pay Later)
 // @route   POST /api/credit/bnpl/apply
 // @access  Private (Customers only)
@@ -266,10 +146,10 @@ const applyBNPL = async (req, res) => {
     };
     await user.save();
 
-    if (scoreData.score < MIN_BNPL_SCORE) {
+    if (scoreData.score < creditConfig.BNPL.MIN_SCORE) {
       return res.status(400).json({
         success: false,
-        message: `BNPL requires a minimum credit score of ${MIN_BNPL_SCORE}. Your score is ${scoreData.score}.`
+        message: `BNPL requires a minimum credit score of ${creditConfig.BNPL.MIN_SCORE}. Your score is ${scoreData.score}.`
       });
     }
 
@@ -352,14 +232,27 @@ const applyNanoLoan = async (req, res) => {
       });
     }
 
-    if (req.user.kycStatus !== 'verified') {
-      return res.status(400).json({
-        success: false,
-        message: 'Nano loans require verified KYC'
-      });
-    }
+    const { tenureMonths, consent_acknowledged, consent_payload } = req.body;
+    if (!consent_acknowledged || !consent_payload) return res.status(400).json({ success: false, message: 'Nano loan consent acknowledgement is required' });
 
     const user = await User.findById(req.user.id);
+    const hasPhoneAndCnic = Boolean(user?.phone && user?.kycData?.cnic);
+    const derivedKycLevel =
+      user?.kycStatus === 'verified'
+        ? 2
+        : hasPhoneAndCnic
+        ? 1
+        : 0;
+    const effectiveKycLevel = Math.max(Number(user?.kycLevel || 0), derivedKycLevel);
+
+    if ((user?.kycLevel || 0) !== effectiveKycLevel) {
+      user.kycLevel = effectiveKycLevel;
+      await user.save({ validateBeforeSave: false });
+    }
+
+    if (effectiveKycLevel < creditConfig.NANO.MIN_KYC_LEVEL) {
+      return res.status(400).json({ success: false, message: 'Nano loans require higher KYC level' });
+    }
     const [transactions, creditLines] = await Promise.all([
       Transaction.find({ user: req.user.id, status: 'completed' }),
       CreditLine.find({ user: req.user.id })
@@ -372,9 +265,42 @@ const applyNanoLoan = async (req, res) => {
       });
     }
 
-    const Store = require('../models/Store');
+    const completedOrders = await Order.countDocuments({
+      merchant: req.user.id,
+      status: 'delivered'
+    });
+    if (completedOrders < creditConfig.NANO.MIN_COMPLETED_ORDERS) {
+      return res.status(400).json({
+        success: false,
+        code: 'MIN_COMPLETED_ORDERS',
+        message: `Nano loans require at least ${creditConfig.NANO.MIN_COMPLETED_ORDERS} delivered stock orders. You currently have ${completedOrders}.`
+      });
+    }
+
+    const accountAgeMs = Date.now() - new Date(user.createdAt).getTime();
+    const minAccountAgeMs = creditConfig.NANO.MIN_ACCOUNT_AGE_DAYS * 24 * 60 * 60 * 1000;
+    if (accountAgeMs < minAccountAgeMs) {
+      return res.status(400).json({
+        success: false,
+        code: 'MIN_ACCOUNT_AGE',
+        message: `Nano loans require an account at least ${creditConfig.NANO.MIN_ACCOUNT_AGE_DAYS} days old.`
+      });
+    }
+
     const store = await Store.findOne({ owner: req.user.id });
-    const scoreData = await scoreUser(user, transactions, creditLines, store);
+    let scoreData;
+    try {
+      scoreData = await scoreUser(user, transactions, creditLines, store);
+    } catch (err) {
+      if (err instanceof ScoringServiceUnavailableError) {
+        return res.status(503).json({
+          success: false,
+          code: 'SCORING_SERVICE_UNAVAILABLE',
+          message: 'Credit scoring service unavailable'
+        });
+      }
+      throw err;
+    }
     user.creditScore = {
       score: scoreData.score,
       band: scoreData.band,
@@ -384,14 +310,27 @@ const applyNanoLoan = async (req, res) => {
     };
     await user.save();
 
-    if (scoreData.score < MIN_NANO_SCORE) {
+    if (scoreData.score < creditConfig.NANO.MIN_SCORE) {
       return res.status(400).json({
         success: false,
-        message: `Nano loans require a minimum score of ${MIN_NANO_SCORE}. Your score is ${scoreData.score}.`
+        message: `Nano loans require a minimum score of ${creditConfig.NANO.MIN_SCORE}. Your score is ${scoreData.score}.`
       });
     }
 
-    const eligibleTier = [...NANO_TIERS]
+    const activeNanoLoans = await CreditLine.countDocuments({
+      user: req.user.id,
+      productType: 'nano',
+      status: { $in: ['approved', 'active', 'overdue'] }
+    });
+    if (activeNanoLoans >= creditConfig.NANO.MAX_ACTIVE_LOANS) {
+      return res.status(400).json({
+        success: false,
+        code: 'MAX_ACTIVE_NANO_LOANS',
+        message: `You already have the maximum of ${creditConfig.NANO.MAX_ACTIVE_LOANS} active nano loan(s).`
+      });
+    }
+
+    const eligibleTier = [...creditConfig.NANO.TIERS]
       .reverse()
       .find((tier) => scoreData.score >= tier.minScore);
 
@@ -409,42 +348,58 @@ const applyNanoLoan = async (req, res) => {
       });
     }
 
-    const nanoLoan = new CreditLine({
-      user: req.user.id,
-      userName: req.user.name,
-      type: 'nano',
-      creditLimit: eligibleTier.maxAmount,
-      availableCredit: eligibleTier.maxAmount,
-      usedCredit: 0,
-      principalAmount: requestedAmount,
-      interestRate: eligibleTier.interestRate,
-      tenureMonths: eligibleTier.tenureMonths,
-      status: 'approved',
-      approvedAt: Date.now(),
-      creditScoreAtApplication: scoreData.score,
-      riskLevel: assessRiskLevel(scoreData.band)
-    });
+    const selectedTenure = creditConfig.NANO.TENURE_OPTIONS.find((t) => t.months === Number(tenureMonths)) || creditConfig.NANO.TENURE_OPTIONS[0];
 
-    nanoLoan.generateInstallments();
-    await nanoLoan.save();
-
-    await Transaction.create({
-      user: req.user.id,
-      type: 'loan_disbursement',
-      category: 'loan',
-      amount: requestedAmount,
-      description: `Nano loan disbursement (${eligibleTier.tier})`,
-      relatedCreditLine: nanoLoan._id,
-      paymentMethod: 'credit',
-      status: 'completed'
+    const session = await mongoose.startSession();
+    let nanoLoan;
+    await session.withTransaction(async () => {
+      nanoLoan = await CreditLine.create([{
+        user: req.user.id,
+        userName: req.user.name,
+        type: 'nano',
+        productType: 'nano',
+        disbursementType: 'wallet_credit',
+        creditLimit: eligibleTier.maxAmount,
+        availableCredit: eligibleTier.maxAmount,
+        usedCredit: 0,
+        principalAmount: requestedAmount,
+        markupRate: eligibleTier.markupRate,
+        tenureMonths: selectedTenure.months,
+        installmentCount: selectedTenure.months,
+        status: 'approved',
+        approvedAt: Date.now(),
+        creditScoreAtApplication: scoreData.score,
+        scoreAtApproval: scoreData.score,
+        kycLevelAtApproval: user.kycLevel || 0,
+        riskLevel: assessRiskLevel(scoreData.band),
+        consentAcknowledged: true,
+        consentTimestamp: new Date(),
+        loanAgreementSnapshot: consent_payload
+      }], { session });
+      nanoLoan = nanoLoan[0];
+      nanoLoan.generateInstallments({ installmentCount: selectedTenure.months, intervalDays: 30 });
+      await nanoLoan.save({ session });
+      await User.findByIdAndUpdate(req.user.id, { $inc: { walletBalance: requestedAmount } }, { session });
+      await Transaction.create([{
+        user: req.user.id,
+        type: 'loan_disbursement',
+        category: 'loan',
+        amount: requestedAmount,
+        description: `Nano loan disbursement (${eligibleTier.tier})`,
+        relatedCreditLine: nanoLoan._id,
+        paymentMethod: 'wallet',
+        status: 'completed'
+      }], { session });
     });
+    session.endSession();
 
     return res.status(201).json({
       success: true,
       message: 'Nano loan approved successfully.',
       data: {
         creditLine: nanoLoan,
-        tier: eligibleTier,
+        tier: toServiceCharge(eligibleTier),
+        consent: toServiceCharge(consent_payload),
         disbursedAmount: requestedAmount
       }
     });
@@ -465,7 +420,8 @@ const makePayment = async (req, res) => {
   try {
     const { amount, paymentMethod } = req.body;
     
-    const creditLine = await CreditLine.findById(req.params.creditLineId);
+    const session = await mongoose.startSession();
+    const creditLine = await CreditLine.findById(req.params.creditLineId).session(session);
     
     if (!creditLine) {
       return res.status(404).json({
@@ -521,19 +477,29 @@ const makePayment = async (req, res) => {
       creditLine.closureReason = 'Fully repaid';
     }
     
-    await creditLine.save();
-    
-    // Create transaction record
-    await Transaction.create({
-      user: req.user.id,
-      type: 'loan_repayment',
-      category: 'repayment',
-      amount: amount,
-      description: `${creditLine.type.toUpperCase()} repayment`,
-      relatedCreditLine: creditLine._id,
-      paymentMethod: paymentMethod || 'bank_transfer',
-      status: 'completed'
+    await session.withTransaction(async () => {
+      if ((paymentMethod || 'bank_transfer') === 'wallet') {
+        const currentUser = await User.findById(req.user.id).session(session);
+        if (!currentUser || (currentUser.walletBalance || 0) < amount) {
+          throw new Error('INSUFFICIENT_WALLET_BALANCE');
+        }
+        currentUser.walletBalance -= amount;
+        await currentUser.save({ session });
+      }
+
+      await creditLine.save({ session });
+      await Transaction.create([{
+        user: req.user.id,
+        type: 'loan_repayment',
+        category: 'repayment',
+        amount: amount,
+        description: `${creditLine.type.toUpperCase()} repayment`,
+        relatedCreditLine: creditLine._id,
+        paymentMethod: paymentMethod || 'bank_transfer',
+        status: 'completed'
+      }], { session });
     });
+    session.endSession();
     
     res.status(200).json({
       success: true,
@@ -550,11 +516,40 @@ const makePayment = async (req, res) => {
   }
 };
 
+const getNanoTiers = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('creditScore kycLevel createdAt');
+    const score = user?.creditScore?.score || 0;
+    const eligibleTier = [...creditConfig.NANO.TIERS].reverse().find((tier) => score >= tier.minScore)?.tier || null;
+    return res.status(200).json({
+      success: true,
+      data: {
+        currentScore: score,
+        kycLevel: user?.kycLevel || 0,
+        eligibleTier,
+        tiers: creditConfig.NANO.TIERS.map((tier) => toServiceCharge(tier)),
+        tenureOptions: creditConfig.NANO.TENURE_OPTIONS.map(({ months }) => ({ months })),
+        requirements: {
+          minScore: creditConfig.NANO.MIN_SCORE,
+          minKycLevel: creditConfig.NANO.MIN_KYC_LEVEL,
+          minCompletedTransactions: MIN_NANO_TXNS,
+          minCompletedOrders: creditConfig.NANO.MIN_COMPLETED_ORDERS,
+          minAccountAgeDays: creditConfig.NANO.MIN_ACCOUNT_AGE_DAYS,
+          maxActiveLoans: creditConfig.NANO.MAX_ACTIVE_LOANS
+        }
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Error fetching nano tiers', error: error.message });
+  }
+};
+
 module.exports = {
   getCreditLines,
   getCreditScore,
-  applySNPL,
+  getNanoTiers,
   applyBNPL,
   applyNanoLoan,
   makePayment
 };
+

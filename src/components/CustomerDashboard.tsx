@@ -4,7 +4,7 @@ import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
-import { ShoppingBag, Gift, Package, Wallet, User, ChevronRight, Star } from 'lucide-react';
+import { ShoppingBag, Gift, Package, Wallet, User, ChevronRight, Star, BarChart3 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function CustomerDashboard() {
@@ -82,7 +82,8 @@ export function CustomerDashboard() {
     { icon: ShoppingBag, label: 'Shop Now', color: 'from-[#3D8A75] to-[#2d6b5c]', screen: 'customer-marketplace' as const },
     { icon: Package, label: 'My Orders', color: 'from-[#102542] to-[#3D8A75]', screen: 'order-tracking' as const },
     { icon: Wallet, label: 'Payments', color: 'from-[#102542] to-[#3D8A75]', screen: 'payments-main' as const },
-    { icon: Gift, label: 'Rewards', color: 'from-orange-500 to-orange-700', screen: 'rewards' as const }
+    { icon: Gift, label: 'Rewards', color: 'from-orange-500 to-orange-700', screen: 'rewards' as const },
+    { icon: BarChart3, label: 'Credit Score', color: 'from-blue-600 to-cyan-700', screen: 'credit-score-initiate' as const }
   ];
 
   return (
@@ -145,7 +146,7 @@ export function CustomerDashboard() {
 
       <div className="px-6 mt-6">
         {/* Quick Actions */}
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-3 gap-3 mb-6">
           {quickActions.map((action, index) => (
             <motion.button
               key={action.label}

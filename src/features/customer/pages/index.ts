@@ -8,4 +8,7 @@ export { OrderConfirmation } from '../../../components/OrderConfirmation';
 export { OrderTracking } from '../../../components/OrderTracking';
 export { NanoLoan } from '../../../components/NanoLoan';
 export { Rewards } from '../../../components/Rewards';
+export { BNPLPlanSelection } from '../../../components/BNPLPlanSelection';
+export { BNPLFactSheet } from '../../../components/BNPLFactSheet';
+export { PayLaterDashboard } from '../../../components/PayLaterDashboard';
 

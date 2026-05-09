@@ -1,6 +1,6 @@
 # SuperBazaar Backend API
 
-Backend API for SuperBazaar - An Open Banking Powered E-commerce Platform with BNPL/SNPL features.
+Backend API for SuperBazaar - An Open Banking Powered E-commerce Platform with BNPL and bank-facilitated inventory financing.
 
 ## 🚀 Features
 
@@ -8,7 +8,7 @@ Backend API for SuperBazaar - An Open Banking Powered E-commerce Platform with B
 - **KYC/KYB Onboarding** - Digital paperless verification
 - **Product Catalog** - Full CRUD for wholesale products
 - **Order Management** - Create and track orders
-- **SNPL (Stock Now Pay Later)** - Working capital loans for merchants
+- **Stock Now Pay Later via Bank** - Merchant inventory financing facilitated by SuperBazaar and issued by the selected bank
 - **BNPL (Buy Now Pay Later)** - Customer financing
 - **Credit Scoring** - Mock algorithm for MVP
 - **Dashboard Analytics** - Real-time business metrics
@@ -80,7 +80,7 @@ PORT=5000
 NODE_ENV=development
 MONGODB_URI=mongodb://localhost:27017/superbazaar
 JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
-JWT_EXPIRE=30d
+JWT_EXPIRE=24h
 ```
 
 ### Step 3: Start MongoDB
@@ -111,7 +111,7 @@ This creates:
 - 2 Supplier users (Metro Wholesale, Bismillah Traders)
 - 10 Products (Rice, Oil, Tea, etc.)
 - Sample transactions
-- Active SNPL credit line
+- Bank-financing ready merchant profile
 
 **Sample Credentials:**
 ```
@@ -170,11 +170,14 @@ GET    /api/orders/:id           - Get single order
 PUT    /api/orders/:id/status    - Update order status
 ```
 
-### Credit (SNPL/BNPL)
+### Credit and Bank Financing
 ```
 GET    /api/credit               - Get user's credit lines
 GET    /api/credit/score         - Calculate credit score
-POST   /api/credit/snpl/apply    - Apply for SNPL (Merchants)
+GET    /api/bank-financing/eligibility - Check merchant bank-financing eligibility
+POST   /api/bank-financing/apply       - Submit bank-financing application
+POST   /api/bank-financing/:id/accept  - Accept bank-issued offer
+POST   /api/bank-financing/:id/decline - Decline bank-issued offer
 POST   /api/credit/bnpl/apply    - Apply for BNPL (Customers)
 POST   /api/credit/:id/payment   - Make payment on credit line
 ```
@@ -240,14 +243,17 @@ curl -X POST http://localhost:5000/api/auth/login \
 curl -X GET http://localhost:5000/api/products?category=Groceries
 ```
 
-### Apply for SNPL
+### Apply for Bank Financing
 
 ```bash
-curl -X POST http://localhost:5000/api/credit/snpl/apply \
+curl -X POST http://localhost:5000/api/bank-financing/apply \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{
-    "requestedAmount": 200000
+    "selectedBank": "HBL",
+    "requestedAmount": 200000,
+    "productIds": ["PRODUCT_ID"],
+    "consentGiven": true
   }'
 ```
 
@@ -325,11 +331,11 @@ const getDashboard = async () => {
 ### Order Schema
 - Order items and pricing
 - Merchant and supplier references
-- Payment method (cash, SNPL, BNPL)
+- Payment method (cash, bank financing, BNPL)
 - Order status and tracking
 
 ### CreditLine Schema
-- Type (SNPL or BNPL)
+- Type (BNPL or nano)
 - Credit limits and usage
 - Installment schedule
 - Payment history

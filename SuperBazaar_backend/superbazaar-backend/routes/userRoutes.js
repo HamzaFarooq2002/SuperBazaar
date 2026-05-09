@@ -5,6 +5,8 @@ const User = require('../models/User');
 
 const ALLOWED_PROFILE_FIELDS = ['userType', 'name', 'phone', 'businessName', 'businessAddress'];
 const USER_TYPE_ENUM = ['merchant', 'supplier', 'customer'];
+const sendConflict = (res, field, message) =>
+  res.status(409).json({ success: false, message, field });
 
 // @desc    Update user profile
 // @route   PUT /api/users/profile
@@ -31,6 +33,16 @@ router.put('/profile', protect, async (req, res) => {
       }
     }
 
+    if (updates.phone && updates.phone !== user.phone) {
+      const existingPhone = await User.findOne({
+        _id: { $ne: user._id },
+        phone: updates.phone
+      }).select('_id');
+      if (existingPhone) {
+        return sendConflict(res, 'phone', 'A user with this phone already exists.');
+      }
+    }
+
     Object.assign(user, updates);
     await user.save();
 
@@ -41,6 +53,9 @@ router.put('/profile', protect, async (req, res) => {
       data: { user: userObj }
     });
   } catch (error) {
+    if (error?.code === 11000 && error?.keyPattern?.phone) {
+      return sendConflict(res, 'phone', 'A user with this phone already exists.');
+    }
     res.status(500).json({
       success: false,
       message: 'Error updating profile',
@@ -118,7 +133,7 @@ router.get('/transactions', protect, async (req, res) => {
   }
 });
 
-// @desc    Get wallet balance and recent disbursements
+// @desc    Get wallet balance and latest relevant loan transactions
 // @route   GET /api/users/wallet
 // @access  Private
 router.get('/wallet', protect, async (req, res) => {
@@ -130,16 +145,16 @@ router.get('/wallet', protect, async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const disbursements = await Transaction.find({
+    const recentTransactions = await Transaction.find({
       user: req.user.id,
-      type: 'loan_disbursement'
-    }).sort({ transactionDate: -1 }).limit(10);
+      type: { $in: ['loan_disbursement', 'loan_repayment'] }
+    }).sort({ createdAt: -1 }).limit(5).lean();
 
     res.json({
       success: true,
       data: {
         walletBalance: user.walletBalance || 0,
-        recentDisbursements: disbursements
+        recentTransactions
       }
     });
   } catch (error) {

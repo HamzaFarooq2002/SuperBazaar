@@ -1,11 +1,13 @@
 const express = require('express');
+const path = require('path');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const dns = require('dns');
+const cron = require('node-cron');
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from this package directory (works regardless of cwd)
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 // Force IPv4 for MongoDB Atlas (fixes DNS issues on some networks)
 dns.setDefaultResultOrder('ipv4first');
@@ -18,6 +20,12 @@ const orderRoutes = require('./routes/orderRoutes');
 const creditRoutes = require('./routes/creditRoutes');
 const storeRoutes = require('./routes/storeRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const bnplRoutes = require('./routes/bnplRoutes');
+const bankFinancingRoutes = require('./routes/bankFinancingRoutes');
+const { runOverdueJob } = require('./jobs/overdueJob');
+const { runReminderJob } = require('./jobs/reminderJob');
+const creditConfig = require('./config/creditConfig');
 
 // Initialize app
 const app = express();
@@ -41,6 +49,9 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/credit', creditRoutes);
 app.use('/api/stores', storeRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/bnpl', bnplRoutes);
+app.use('/api/bank-financing', bankFinancingRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -89,6 +100,8 @@ mongoose.connect(MONGODB_URI, {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📍 API URL: http://localhost:${PORT}/api`);
       console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
+      cron.schedule('0 0 * * *', () => runOverdueJob().catch((err) => console.error('overdueJob error', err)), { timezone: creditConfig.TIMEZONE });
+      cron.schedule('0 9 * * *', () => runReminderJob().catch((err) => console.error('reminderJob error', err)), { timezone: creditConfig.TIMEZONE });
     });
   })
   .catch((err) => {
@@ -102,3 +115,4 @@ process.on('unhandledRejection', (err) => {
   // Close server & exit process
   process.exit(1);
 });
+

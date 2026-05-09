@@ -5,7 +5,6 @@ import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { ArrowLeft, TrendingUp, TrendingDown, Info, Share2, Download, RefreshCcw } from 'lucide-react';
 
-const SNPL_MIN_SCORE = 680;
 const BNPL_MIN_SCORE = 620;
 
 export function CreditScoreResult() {
@@ -23,6 +22,7 @@ export function CreditScoreResult() {
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [txCount, setTxCount] = useState(0);
+  const [bnplEligibility, setBnplEligibility] = useState<any>(null);
 
   const loadCreditScore = async () => {
     setError('');
@@ -58,6 +58,11 @@ export function CreditScoreResult() {
   useEffect(() => {
     loadCreditScore();
   }, []);
+
+  useEffect(() => {
+    if (user?.userType !== 'customer') return;
+    api.bnpl.getEligibility().then((res) => setBnplEligibility(res.data)).catch(() => setBnplEligibility(null));
+  }, [user?.userType]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -117,8 +122,7 @@ export function CreditScoreResult() {
   };
 
   const status = getScoreStatus(creditScore);
-  const isSnplEligible = creditScore >= SNPL_MIN_SCORE;
-  const isBnplEligible = creditScore >= BNPL_MIN_SCORE;
+  const isBnplEligible = bnplEligibility?.eligible ?? creditScore >= BNPL_MIN_SCORE;
   const isMerchant = user?.userType === 'merchant';
   const isCustomer = user?.userType === 'customer';
 
@@ -335,26 +339,32 @@ export function CreditScoreResult() {
           <p className="text-[13px] text-[#102542] font-medium mb-2">Loan access thresholds</p>
           <p className="text-[12px] text-[#102542] opacity-70 mb-3">
             {isMerchant
-              ? `SNPL unlocks at score ${SNPL_MIN_SCORE}+ and nano loans unlock by tier.`
+              ? `Bank financing unlocks at score 650+ with verified KYC. Pricing is bank-issued: KIBOR + spread by tier.`
               : isCustomer
               ? `BNPL unlocks at score ${BNPL_MIN_SCORE}+ with verified KYC and transaction history.`
               : 'Credit products are role-based and score-gated.'}
           </p>
           <div className="text-[12px] text-[#102542] space-y-1 mb-3">
-            {isMerchant && <p>{isSnplEligible ? '✓' : '•'} SNPL eligibility: {isSnplEligible ? 'Eligible' : 'Not eligible yet'}</p>}
+            {isMerchant && <p>{(creditScore >= 650) ? '✓' : '•'} Bank financing eligibility: {(creditScore >= 650) ? 'Eligible' : 'Not eligible yet'}</p>}
             {isCustomer && <p>{isBnplEligible ? '✓' : '•'} BNPL eligibility: {isBnplEligible ? 'Eligible' : 'Not eligible yet'}</p>}
+            {isCustomer && (
+              <>
+                <p>7-day markup: Excellent 0%, Good 5%, Fair 10%</p>
+                <p>14-day markup: Excellent 0%, Good 10%, Fair 20%</p>
+              </>
+            )}
           </div>
           <button
-            onClick={() => navigateTo('payments-main')}
-            disabled={(isMerchant && !isSnplEligible) || (isCustomer && !isBnplEligible)}
+            onClick={() => navigateTo(isCustomer ? 'customer-marketplace' : 'bank-financing-dashboard')}
+            disabled={(isMerchant && !(creditScore >= 650)) || (isCustomer && !isBnplEligible)}
             className={`w-full h-10 rounded-lg text-sm font-medium transition-colors ${
-              (isMerchant && isSnplEligible) || (isCustomer && isBnplEligible)
+              (isMerchant && (creditScore >= 650)) || (isCustomer && isBnplEligible)
                 ? 'bg-[#3D8A75] text-white hover:bg-[#2d6b5c]'
                 : 'bg-gray-200 text-gray-500 cursor-not-allowed'
             }`}
           >
-            {(isMerchant && isSnplEligible) || (isCustomer && isBnplEligible)
-              ? 'View Available Credit Lines'
+            {(isMerchant && (creditScore >= 650)) || (isCustomer && isBnplEligible)
+              ? isCustomer ? 'Shop with Pay Later' : 'View Bank Financing'
               : 'Improve score to unlock credit'}
           </button>
         </motion.div>

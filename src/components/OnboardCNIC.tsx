@@ -47,6 +47,7 @@ export function OnboardCNIC() {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   React.useEffect(() => {
     // #region agent log
@@ -142,6 +143,7 @@ export function OnboardCNIC() {
                 className="w-full h-[50px] pl-12 pr-4 rounded-[10px] border border-[#e0e0e0] text-[15px] text-black bg-white focus:outline-none focus:ring-2 focus:ring-[#3D8A75]"
               />
             </div>
+            {fieldErrors.cnic && <p className="text-red-600 text-xs mt-1">{fieldErrors.cnic}</p>}
           </div>
 
           {/* Phone Input */}
@@ -161,6 +163,7 @@ export function OnboardCNIC() {
                 className="w-full h-[50px] pl-12 pr-4 rounded-[10px] border border-[#e0e0e0] text-[15px] text-black bg-white focus:outline-none focus:ring-2 focus:ring-[#3D8A75]"
               />
             </div>
+            {fieldErrors.phone && <p className="text-red-600 text-xs mt-1">{fieldErrors.phone}</p>}
           </div>
 
           {/* Info Box */}
@@ -185,13 +188,17 @@ export function OnboardCNIC() {
             if (!isValid) return;
             setLoading(true);
             setError('');
+            setFieldErrors({});
             try {
               await api.users.updateProfile({ phone });
               await api.auth.submitKYC({ cnic });
               await refreshUser();
               navigateTo('onboard-otp');
             } catch (err: any) {
-              setError(err?.error?.message || 'Unable to save verification details');
+              const field = err?.error?.data?.field;
+              const message = err?.error?.data?.message || err?.error?.message || 'Unable to save verification details';
+              if (field) setFieldErrors((prev) => ({ ...prev, [field]: message }));
+              setError(message);
             } finally {
               setLoading(false);
             }

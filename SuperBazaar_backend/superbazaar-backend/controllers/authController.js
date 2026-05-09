@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Store = require('../models/Store');
 const { generateToken } = require('../utils/jwtUtils');
 const { calculateCreditScore } = require('../utils/creditScoring');
+const { validatePassword } = require('../utils/passwordPolicy');
 
 const REQUIRED_BUSINESS_DOCS = ['ntn_certificate', 'business_registration', 'bank_statement'];
 
@@ -48,6 +49,40 @@ const computeKycStatus = (user) => {
   return 'pending';
 };
 
+const sendConflict = (res, field, message) =>
+  res.status(409).json({
+    success: false,
+    message,
+    field
+  });
+
+const syncSupplierVerificationStore = async (user) => {
+  if (user.userType !== 'supplier' || user.kycStatus !== 'verified') return null;
+
+  return Store.findOneAndUpdate(
+    { owner: user._id },
+    {
+      $set: {
+        name: user.businessName || user.name,
+        phone: user.phone,
+        email: user.email,
+        isVerified: true,
+        verifiedAt: new Date()
+      },
+      $setOnInsert: {
+        owner: user._id,
+        address: {
+          street: user.businessAddress || '',
+          city: 'Karachi',
+          country: 'Pakistan'
+        },
+        businessType: user.businessType || 'other'
+      }
+    },
+    { upsert: true, new: true, runValidators: true }
+  );
+};
+
 // @desc    Register new user
 // @route   POST /api/auth/signup
 // @access  Public
@@ -64,14 +99,24 @@ const signup = async (req, res) => {
     }
     
     // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { phone }] 
-    });
-    
+    const existingUser = await User.findOne({
+      $or: [{ email }, { phone }]
+    }).select('email phone');
+
     if (existingUser) {
+      if (existingUser.email === email) {
+        return sendConflict(res, 'email', 'A user with this email already exists.');
+      }
+      return sendConflict(res, 'phone', 'A user with this phone already exists.');
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.ok) {
       return res.status(400).json({
         success: false,
-        message: 'User with this email or phone already exists'
+        field: 'password',
+        message: passwordValidation.errors[0].message,
+        errors: passwordValidation.errors
       });
     }
     
@@ -111,6 +156,17 @@ const signup = async (req, res) => {
     });
   } catch (error) {
     console.error('Signup error:', error);
+    if (error?.code === 11000) {
+      if (error?.keyPattern?.email) {
+        return sendConflict(res, 'email', 'A user with this email already exists.');
+      }
+      if (error?.keyPattern?.phone) {
+        return sendConflict(res, 'phone', 'A user with this phone already exists.');
+      }
+      if (error?.keyPattern?.['kycData.cnic']) {
+        return sendConflict(res, 'cnic', 'A user with this CNIC already exists.');
+      }
+    }
     res.status(500).json({
       success: false,
       message: 'Error creating user',
@@ -215,6 +271,16 @@ const submitKYC = async (req, res) => {
       });
     }
 
+    if (cnic !== undefined && cnic !== currentKyc.cnic) {
+      const existingCnic = await User.findOne({
+        _id: { $ne: user._id },
+        'kycData.cnic': cnic
+      }).select('_id');
+      if (existingCnic) {
+        return sendConflict(res, 'cnic', 'A user with this CNIC already exists.');
+      }
+    }
+
     user.kycData = {
       ...currentKyc,
       cnic: cnic !== undefined ? cnic : currentKyc.cnic,
@@ -232,8 +298,12 @@ const submitKYC = async (req, res) => {
     }
 
     user.kycStatus = computeKycStatus(user);
+    const hasPhoneAndCnic = Boolean(user.phone && user.kycData?.cnic);
+    if (hasPhoneAndCnic) user.kycLevel = Math.max(user.kycLevel || 0, 1);
+    if (user.kycStatus === 'verified') user.kycLevel = Math.max(user.kycLevel || 0, 2);
     
     await user.save();
+    await syncSupplierVerificationStore(user);
     
     res.status(200).json({
       success: true,
@@ -244,6 +314,14 @@ const submitKYC = async (req, res) => {
     });
   } catch (error) {
     console.error('KYC submission error:', error);
+    if (error?.code === 11000) {
+      if (error?.keyPattern?.['kycData.cnic']) {
+        return sendConflict(res, 'cnic', 'A user with this CNIC already exists.');
+      }
+      if (error?.keyPattern?.phone) {
+        return sendConflict(res, 'phone', 'A user with this phone already exists.');
+      }
+    }
     res.status(500).json({
       success: false,
       message: 'Error submitting KYC data',
@@ -267,6 +345,7 @@ const verifyKYC = async (req, res) => {
     }
     
     user.kycStatus = 'verified';
+    user.kycLevel = Math.max(user.kycLevel || 0, 2);
     
     // Calculate initial credit score for merchants
     if (user.userType === 'merchant') {
@@ -275,6 +354,7 @@ const verifyKYC = async (req, res) => {
     }
     
     await user.save();
+    await syncSupplierVerificationStore(user);
     
     res.status(200).json({
       success: true,

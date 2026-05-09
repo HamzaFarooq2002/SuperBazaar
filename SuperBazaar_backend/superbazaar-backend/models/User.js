@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: 6,
+    minlength: 8,
     select: false
   },
   
@@ -39,6 +39,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'submitted', 'verified', 'rejected'],
     default: 'pending'
+  },
+  kycLevel: {
+    type: Number,
+    default: 0
   },
   kycData: {
     cnic: String,
@@ -153,6 +157,14 @@ creditScore: {
 }, {
   timestamps: true
 });
+
+userSchema.index(
+  { 'kycData.cnic': 1 },
+  {
+    unique: true,
+    partialFilterExpression: { 'kycData.cnic': { $type: 'string' } }
+  }
+);
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {

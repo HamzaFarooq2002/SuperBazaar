@@ -366,20 +366,6 @@ const creditAPI = {
   },
 
   /**
-   * Apply for SNPL (Stock Now Pay Later) - Merchants only
-   * @param {number} requestedAmount - Amount requested
-   * @returns {Promise}
-   */
-  applySNPL: async (requestedAmount) => {
-    try {
-      const response = await axiosInstance.post('/credit/snpl/apply', { requestedAmount });
-      return handleResponse(response);
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  /**
    * Apply for BNPL (Buy Now Pay Later)
    * @param {Object} payload - BNPL request payload
    * @returns {Promise}
@@ -405,6 +391,10 @@ const creditAPI = {
     } catch (error) {
       throw error;
     }
+  },
+  getNanoTiers: async () => {
+    const response = await axiosInstance.get('/credit/nano/tiers');
+    return handleResponse(response);
   },
 
   /**
@@ -539,6 +529,30 @@ const usersAPI = {
   },
 };
 
+const notificationsAPI = {
+  getNotifications: async (params = {}) => handleResponse(await axiosInstance.get('/notifications', { params })),
+  getUnreadCount: async () => handleResponse(await axiosInstance.get('/notifications/unread-count')),
+  markAsRead: async (id) => handleResponse(await axiosInstance.patch(`/notifications/${id}/read`)),
+  markAllRead: async () => handleResponse(await axiosInstance.patch('/notifications/read-all'))
+};
+
+
+const bankFinancingAPI = {
+  getEligibility: async (params = {}) => handleResponse(await axiosInstance.get('/bank-financing/eligibility', { params })),
+  apply: async (payload) => handleResponse(await axiosInstance.post('/bank-financing/apply', payload)),
+  accept: async (id, payload) => handleResponse(await axiosInstance.post(`/bank-financing/${id}/accept`, payload)),
+  decline: async (id) => handleResponse(await axiosInstance.post(`/bank-financing/${id}/decline`)),
+  list: async () => handleResponse(await axiosInstance.get('/bank-financing')),
+  get: async (id) => handleResponse(await axiosInstance.get(`/bank-financing/${id}`))
+};
+
+const bnplAPI = {
+  getEligibility: async (params = {}) => handleResponse(await axiosInstance.get('/bnpl/eligibility', { params })),
+  initiate: async (payload) => handleResponse(await axiosInstance.post('/bnpl/initiate', payload)),
+  getOrders: async () => handleResponse(await axiosInstance.get('/bnpl/orders')),
+  repay: async (orderId, payload) => handleResponse(await axiosInstance.post(`/bnpl/repay/${orderId}`, payload))
+};
+
 // Export API service
 const api = {
   auth: authAPI,
@@ -548,6 +562,9 @@ const api = {
   dashboard: dashboardAPI,
   stores: storesAPI,
   users: usersAPI,
+  notifications: notificationsAPI,
+  bnpl: bnplAPI,
+  bankFinancing: bankFinancingAPI,
   // Export token service for direct access if needed
   token: TokenService,
 };

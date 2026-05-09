@@ -154,13 +154,15 @@ export interface CreateProductData {
 export interface Order {
   _id: string;
   orderNumber: string;
-  merchant: string;
+  merchant?: string;
+  customer?: string;
+  orderType?: 'merchant_purchase' | 'customer_bnpl';
   merchantName: string;
   items: OrderItem[];
   subtotal: number;
   tax: number;
   totalAmount: number;
-  paymentMethod: 'cash' | 'snpl' | 'bnpl' | 'bank_transfer' | 'mobile_banking';
+  paymentMethod: 'cash' | 'bnpl' | 'bank_transfer' | 'mobile_banking' | 'bank_financing';
   paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
   orderStatus: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   shippingAddress?: Address;
@@ -193,7 +195,7 @@ export interface CreateOrderData {
     quantity: number;
     price: number;
   }[];
-  paymentMethod: 'cash' | 'snpl' | 'bnpl' | 'bank_transfer' | 'mobile_banking';
+  paymentMethod: 'cash' | 'bnpl' | 'bank_transfer' | 'mobile_banking' | 'bank_financing';
   shippingAddress?: Address;
   notes?: string;
 }
@@ -206,7 +208,7 @@ export interface CreditLine {
   _id: string;
   user: string;
   userName: string;
-  type: 'snpl' | 'bnpl' | 'nano';
+  type: 'bnpl' | 'nano';
   creditLimit: number;
   availableCredit: number;
   usedCredit: number;
@@ -244,14 +246,10 @@ export interface CreditScoreResult {
   };
   rating: string;
   eligibility: {
-    snpl: boolean;
+    bankFinancing: boolean;
     bnpl: boolean;
     maxLimit: number;
   };
-}
-
-export interface SNPLApplication {
-  requestedAmount: number;
 }
 
 export interface BNPLApplication {
@@ -439,7 +437,6 @@ export interface OrdersAPI {
 export interface CreditAPI {
   getCreditLines: () => Promise<ApiResponse<{ creditLines: CreditLine[] }>>;
   getCreditScore: () => Promise<ApiResponse<CreditScoreResult>>;
-  applySNPL: (requestedAmount: number) => Promise<ApiResponse<{ creditLine: CreditLine }>>;
   applyBNPL: (orderData: BNPLApplication) => Promise<ApiResponse<{ creditLine: CreditLine }>>;
   applyNanoLoan: (payload: { requestedAmount: number }) => Promise<ApiResponse<{ creditLine: CreditLine }>>;
   makePayment: (creditLineId: string, paymentData: PaymentData) => Promise<ApiResponse>;
@@ -469,5 +466,78 @@ export interface API {
   dashboard: DashboardAPI;
   stores: StoresAPI;
   users: UsersAPI;
+  bnpl: BNPLAPI;
+  bankFinancing: BankFinancingAPI;
   token: TokenService;
+}
+
+export interface BNPLEligibility {
+  eligible: boolean;
+  reason: 'overdue_blocked' | 'kyc_not_verified' | 'poor_credit_tier' | 'cart_out_of_range' | 'ineligible_category' | null;
+  tier?: 'Excellent' | 'Good' | 'Fair' | 'Poor';
+  rates?: { day7: number | null; day14: number | null; eligible: boolean };
+  minCartValue?: number;
+  maxCartValue?: number;
+  tenureOptionsDays?: number[];
+}
+
+export interface BNPLOrder {
+  _id: string;
+  orderNumber: string;
+  customer?: string;
+  merchant?: string;
+  orderType?: 'merchant_purchase' | 'customer_bnpl';
+  paymentStatus: string;
+  bnplDetails: {
+    tier: string;
+    tenureDays: number;
+    principal: number;
+    markupRate: number;
+    markupAmount: number;
+    totalPayable: number;
+    outstandingPrincipal: number;
+    lateFee: number;
+    dueDate: string;
+  };
+  computedStatus: string;
+}
+
+export interface BNPLAPI {
+  getEligibility: (params?: Record<string, any>) => Promise<ApiResponse<BNPLEligibility>>;
+  initiate: (payload: Record<string, any>) => Promise<ApiResponse<{ order: BNPLOrder }>>;
+  getOrders: () => Promise<ApiResponse<{ orders: BNPLOrder[] }>>;
+  repay: (orderId: string, payload: { amount: number; paymentMethod: string }) => Promise<ApiResponse<{ order: BNPLOrder }>>;
+}
+
+
+export interface BankFinancingApplication {
+  _id: string;
+  applicationId: string;
+  consentIp?: string;
+  consentUserAgent?: string;
+  offerAcceptIp?: string;
+  offerAcceptUserAgent?: string;
+  selectedBank: string;
+  requestedAmount: number;
+  approvedAmount: number;
+  merchantRiskTier: 'Excellent' | 'Good' | 'Fair' | 'Poor';
+  applicationStatus: string;
+  bankApplicationId: string;
+  annualMarkupRate: number;
+  tenureOptionsDays: number[];
+  selectedTenureDays?: number;
+  processingFee: number;
+  totalRepayable: number;
+  repaymentStatus: 'NOT_STARTED' | 'ACTIVE' | 'OVERDUE' | 'COMPLETED';
+  repaymentSchedule: Array<{ dueDate: string; totalDue: number; status: string }>;
+  latePaymentPolicy: string;
+}
+
+export interface BankFinancingAPI {
+  getEligibility: (params?: Record<string, any>) => Promise<ApiResponse<any>>;
+  apply: (payload: Record<string, any>) => Promise<ApiResponse<{ application: BankFinancingApplication }>>;
+  accept: (id: string, payload: Record<string, any>) => Promise<ApiResponse<{ application: BankFinancingApplication; order: Order }>>;
+  decline: (id: string) => Promise<ApiResponse<{ application: BankFinancingApplication }>>;
+  list: () => Promise<ApiResponse<{ applications: BankFinancingApplication[] }>>;
+  get: (id: string) => Promise<ApiResponse<{ application: BankFinancingApplication }>>;
 }

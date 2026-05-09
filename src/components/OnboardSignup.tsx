@@ -4,6 +4,7 @@ import { AppContext } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import svgPaths from "../imports/svg-pwbb4wldqn";
 import imgLogo from "figma:asset/92375b66cc5f6db228cbba4fabc2bd6032c970de.png";
+import { PasswordStrengthChecklist } from './common/PasswordStrengthChecklist';
 
 function StatusBar() {
   return (
@@ -45,6 +46,7 @@ export function OnboardSignup() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const { signup } = useAuth();
 
   const handleSignup = async () => {
@@ -54,6 +56,7 @@ export function OnboardSignup() {
     }
     setLoading(true);
     setError('');
+    setFieldErrors({});
     try {
       // Generate a unique phone placeholder (will be updated in CNIC step later)
       const uniquePhone = '+92' + Date.now().toString().slice(-10);
@@ -68,7 +71,10 @@ export function OnboardSignup() {
       });
       navigateTo('onboard-usertype');
     } catch (err: any) {
-      setError(err?.error?.message || 'Signup failed. Please try again.');
+      const field = err?.error?.data?.field;
+      const message = err?.error?.data?.message || err?.error?.message || 'Signup failed. Please try again.';
+      if (field) setFieldErrors((prev) => ({ ...prev, [field]: message }));
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -157,6 +163,7 @@ export function OnboardSignup() {
             onChange={(e) => setName(e.target.value)}
             className="w-full h-[40px] px-4 py-2 rounded-[8px] bg-white/50 backdrop-blur-sm border border-white/60 text-[14px] text-[#102542] placeholder:text-[#102542]/50 focus:outline-none focus:ring-2 focus:ring-[#3D8A75] focus:bg-white/70 transition-all"
           />
+          {fieldErrors.email && <p className="text-red-600 text-xs mt-1">{fieldErrors.email}</p>}
 
           <input
             type="email"
@@ -165,6 +172,8 @@ export function OnboardSignup() {
             onChange={(e) => setEmail(e.target.value)}
             className="w-full h-[40px] px-4 py-2 rounded-[8px] bg-white/50 backdrop-blur-sm border border-white/60 text-[14px] text-[#102542] placeholder:text-[#102542]/50 focus:outline-none focus:ring-2 focus:ring-[#3D8A75] focus:bg-white/70 transition-all"
           />
+          <PasswordStrengthChecklist password={password} />
+          {fieldErrors.password && <p className="text-red-600 text-xs mt-1">{fieldErrors.password}</p>}
 
           <input
             type="password"
@@ -185,50 +194,11 @@ export function OnboardSignup() {
           </button>
         </motion.div>
 
-        {/* Divider */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="flex items-center gap-2 my-6"
-        >
-          <div className="flex-1 h-px bg-[#102542]/20" />
-          <p className="text-[14px] text-[#102542]/60">or</p>
-          <div className="flex-1 h-px bg-[#102542]/20" />
-        </motion.div>
-
-        {/* Social Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="space-y-3"
-        >
-          <button className="w-full bg-white/60 backdrop-blur-sm h-[40px] rounded-[8px] flex items-center justify-center gap-2 border border-white/70 hover:bg-white/80 hover:scale-[1.02] transition-all">
-            <div className="w-5 h-5">
-              <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 20 20">
-                <g clipPath="url(#clip0_26_144)">
-                  <path d={svgPaths.p33b7ccc0} fill="var(--fill-0, #4285F4)" />
-                  <path d={svgPaths.p15123a40} fill="var(--fill-0, #34A853)" />
-                  <path d={svgPaths.p28bf8e80} fill="var(--fill-0, #FBBC05)" />
-                  <path d={svgPaths.p1e563600} fill="var(--fill-0, #EB4335)" />
-                </g>
-                <defs>
-                  <clipPath id="clip0_26_144">
-                    <rect fill="white" height="20" width="20" />
-                  </clipPath>
-                </defs>
-              </svg>
-            </div>
-            <span className="text-[14px] text-[#102542] font-medium">Continue with Google</span>
-          </button>
-        </motion.div>
-
         {/* Terms */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: 0.3 }}
           className="text-[12px] text-[#102542]/60 text-center mt-6"
         >
           By clicking continue, you agree to our{' '}

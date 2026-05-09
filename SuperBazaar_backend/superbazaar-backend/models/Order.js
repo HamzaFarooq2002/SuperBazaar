@@ -7,15 +7,30 @@ const orderSchema = new mongoose.Schema({
     unique: true,
     required: true
   },
-  
-  // Parties Involved
+
+  // Parties Involved (merchant = shop owner for standard orders; BNPL uses `customer`)
   merchant: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: function orderMerchantRequired() {
+      return this.paymentMethod !== 'bnpl';
+    }
+  },
+  /** Buyer for BNPL / Pay Later orders (distinct from marketplace `merchant`). */
+  customer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: function orderCustomerRequired() {
+      return this.paymentMethod === 'bnpl';
+    }
+  },
+  orderType: {
+    type: String,
+    enum: ['merchant_purchase', 'customer_bnpl'],
+    default: 'merchant_purchase'
   },
   merchantName: String,
-  
+
   // Order Items
   items: [{
     product: {
@@ -43,7 +58,7 @@ const orderSchema = new mongoose.Schema({
       required: true
     }
   }],
-  
+
   // Pricing
   subtotal: {
     type: Number,
@@ -61,25 +76,49 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  
+
   // Payment Method
   paymentMethod: {
     type: String,
-    enum: ['cash', 'bank_transfer', 'snpl', 'bnpl'],
+    enum: ['cash', 'bank_transfer', 'bnpl', 'bank_financing'],
     required: true
   },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid', 'partially_paid', 'failed'],
+    enum: ['pending', 'paid', 'partially_paid', 'failed', 'refunded'],
     default: 'pending'
   },
-  
-  // SNPL/BNPL Reference (if applicable)
+
+  // Financing references
   creditLine: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CreditLine'
   },
-  
+  financingApplication: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BankFinancingApplication'
+  },
+  financingStatus: {
+    type: String,
+    enum: ['NOT_APPLICABLE', 'PENDING_BANK', 'BANK_APPROVED', 'BANK_DISBURSED', 'FINANCING_REJECTED'],
+    default: 'NOT_APPLICABLE'
+  },
+  bnplDetails: {
+    provider: String,
+    tier: String,
+    tenureDays: Number,
+    principal: Number,
+    markupRate: Number,
+    markupAmount: Number,
+    totalPayable: Number,
+    outstandingPrincipal: Number,
+    dueDate: Date,
+    lateFee: { type: Number, default: 0 },
+    paidPrincipal: { type: Number, default: 0 },
+    blockedAt: Date,
+    recoveryAt: Date
+  },
+
   // Delivery
   shippingAddress: {
     recipientName: String,
@@ -93,23 +132,23 @@ const orderSchema = new mongoose.Schema({
       default: 'Pakistan'
     }
   },
-  
+
   // Order Status
   status: {
     type: String,
     enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'],
     default: 'pending'
   },
-  
+
   // Tracking
   trackingNumber: String,
   estimatedDelivery: Date,
   deliveredAt: Date,
-  
+
   // Notes
   customerNotes: String,
   internalNotes: String,
-  
+
   // Fulfillment
   fulfilledBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -127,6 +166,14 @@ orderSchema.pre('validate', async function(next) {
     const count = await mongoose.model('Order').countDocuments();
     this.orderNumber = `ORD-${Date.now()}-${count + 1}`;
   }
+  if (this.paymentMethod === 'bnpl') {
+    this.orderType = 'customer_bnpl';
+    if (!this.customer && this.merchant) {
+      this.customer = this.merchant;
+    }
+  } else if (!this.orderType) {
+    this.orderType = 'merchant_purchase';
+  }
   next();
 });
 
@@ -138,5 +185,8 @@ orderSchema.pre('save', function(next) {
   }
   next();
 });
+
+orderSchema.index({ customer: 1, paymentMethod: 1 });
+orderSchema.index({ orderType: 1 });
 
 module.exports = mongoose.model('Order', orderSchema);

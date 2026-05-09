@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import { Mail, Lock, User, Building, ShoppingCart, Phone } from 'lucide-react';
+import { PasswordStrengthChecklist } from './common/PasswordStrengthChecklist';
 
 export function SignUp() {
   const { navigateTo } = useContext(AppContext);
@@ -15,11 +16,13 @@ export function SignUp() {
     phone: ''
   });
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
     setLoading(true);
 
     try {
@@ -34,7 +37,10 @@ export function SignUp() {
       });
       navigateTo('dashboard'); // SignUp standalone always creates merchant
     } catch (err: any) {
-      setError(err?.error?.message || 'Signup failed. Please try again.');
+      const field = err?.error?.data?.field;
+      const message = err?.error?.data?.message || err?.error?.message || 'Signup failed. Please try again.';
+      if (field) setFieldErrors((prev) => ({ ...prev, [field]: message }));
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -93,6 +99,7 @@ export function SignUp() {
                   required
                 />
               </div>
+              {fieldErrors.phone && <p className="text-red-600 text-xs mt-1">{fieldErrors.phone}</p>}
             </div>
 
             <div>
@@ -108,6 +115,7 @@ export function SignUp() {
                   required
                 />
               </div>
+              {fieldErrors.email && <p className="text-red-600 text-xs mt-1">{fieldErrors.email}</p>}
             </div>
             
             <div>
@@ -122,6 +130,8 @@ export function SignUp() {
                   placeholder="+923001234567"
                 />
               </div>
+              <PasswordStrengthChecklist password={formData.password} />
+              {fieldErrors.password && <p className="text-red-600 text-xs mt-1">{fieldErrors.password}</p>}
             </div>
 
             <div>

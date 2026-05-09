@@ -72,7 +72,7 @@ export function OnboardComplete() {
         { text: 'Access BNPL at checkout when eligible', icon: Award }
       ]
     : [
-        { text: 'Browse suppliers and get SNPL terms', icon: TrendingUp },
+        { text: 'Browse suppliers and apply for bank financing when eligible', icon: TrendingUp },
         { text: 'Unlock merchant nano-loan tiers as your score improves', icon: Award }
       ];
 
@@ -136,7 +136,7 @@ export function OnboardComplete() {
               </h2>
               
               <p className="text-white text-[11px] font-semibold tracking-[0.44px] leading-[1.5] mb-4">
-                SNPL Discount Unlocked
+                Bank Financing Ready
               </p>
               
               <div className="h-px bg-white/30 mb-4"></div>
@@ -163,7 +163,7 @@ export function OnboardComplete() {
         )}
 
         <div className="rounded-[10px] bg-white/10 p-3 text-[11px] text-[#e1f4e3] leading-5 mb-3">
-          Incomplete KYC lowers your credit score and can block SNPL/BNPL eligibility until improved.
+          Incomplete KYC lowers your credit score and can block bank financing or BNPL eligibility until improved.
         </div>
 
         {/* Benefits */}

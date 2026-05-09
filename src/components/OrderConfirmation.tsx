@@ -30,7 +30,7 @@ export function OrderConfirmation() {
 
   // Format payment method for display
   const paymentMethodDisplay = 
-    currentOrder.paymentMethod === 'snpl' ? 'Stock Now Pay Later' :
+    currentOrder.paymentMethod === 'bank_financing' ? 'Bank Financing' :
     currentOrder.paymentMethod === 'cash' ? 'Cash on Delivery' : 
     currentOrder.paymentMethod;
 
@@ -70,6 +70,39 @@ export function OrderConfirmation() {
             />
           </div>
         </motion.div>
+
+        {currentOrder.paymentMethod === 'bnpl' && currentOrder.bnplDetails && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-5 mb-4"
+          >
+            <p className="text-[#102542] mb-3">BNPL Summary</p>
+            <div className="space-y-2 text-sm text-gray-700">
+              <p>Principal: PKR {Number(currentOrder.bnplDetails.principal || 0).toLocaleString()}</p>
+              <p>Tenure: {currentOrder.bnplDetails.tenureDays} days</p>
+              <p>Due Date: {currentOrder.bnplDetails.dueDate ? new Date(currentOrder.bnplDetails.dueDate).toLocaleDateString('en-PK') : '-'}</p>
+              <p>Total Payable: PKR {Number(currentOrder.bnplDetails.totalPayable || 0).toLocaleString()}</p>
+            </div>
+          </motion.div>
+        )}
+
+        {currentOrder.paymentMethod === 'bank_financing' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-5 mb-4"
+          >
+            <p className="text-[#102542] mb-3">Bank Financing Summary</p>
+            <div className="space-y-2 text-sm text-gray-700">
+              <p>This order was financed by the selected bank. SuperBazaar facilitated the application and supplier settlement.</p>
+              <p>Financing status: {currentOrder.financingStatus === 'BANK_DISBURSED' ? 'Bank disbursed' : currentOrder.financingStatus || 'Pending'}</p>
+              {currentOrder.financingApplication && <p>Application reference: {String(currentOrder.financingApplication)}</p>}
+            </div>
+          </motion.div>
+        )}
 
         {/* Success Message */}
         <motion.div
@@ -180,19 +213,6 @@ export function OrderConfirmation() {
           Continue Shopping
         </motion.button>
 
-        {/* Rewards Message */}
-        {currentOrder.paymentMethod === 'snpl' && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9 }}
-            className="mt-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center"
-          >
-            <p className="text-yellow-800 text-sm">
-              🎉 Congratulations! You've earned <span className="font-bold">5% cashback</span> on this order!
-            </p>
-          </motion.div>
-        )}
       </div>
     </div>
   );

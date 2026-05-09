@@ -37,7 +37,7 @@ export function CreditScoreShare() {
       id: 'supplier-2',
       name: 'Karachi Trading House',
       type: 'supplier',
-      description: 'Pending SNPL request',
+      description: 'Pending bank financing request',
       logo: '📦'
     },
     {
@@ -97,7 +97,7 @@ export function CreditScoreShare() {
                 Share with Confidence
               </p>
               <p className="text-[11px] text-[#102542] opacity-70 leading-relaxed">
-                Your credit score ({creditScore > 0 ? creditScore : '...'}/850) can help you unlock better SNPL terms and loan rates. Choose who to share with below.
+                Your credit score ({creditScore > 0 ? creditScore : '...'}/850) can help you unlock better bank financing terms and loan rates. Choose who to share with below.
               </p>
             </div>
           </div>

@@ -18,13 +18,6 @@ const createOrder = async (req, res) => {
       });
     }
 
-    if (paymentMethod === 'snpl' && req.user.userType !== 'merchant') {
-      return res.status(403).json({
-        success: false,
-        message: 'SNPL can only be used by merchants'
-      });
-    }
-
     if (paymentMethod === 'bnpl' && req.user.userType !== 'customer') {
       return res.status(403).json({
         success: false,
@@ -70,8 +63,7 @@ const createOrder = async (req, res) => {
     const shippingCost = DELIVERY_FEE;
     const totalAmount = subtotal + shippingCost;
 
-    const order = new Order({
-      merchant: req.user.id,
+    const orderPayload = {
       merchantName: req.user.businessName || req.user.name,
       items: orderItems,
       subtotal,
@@ -80,41 +72,15 @@ const createOrder = async (req, res) => {
       totalAmount,
       paymentMethod,
       shippingAddress
-    });
-
-    if (paymentMethod === 'snpl' && !useCreditLine) {
-      return res.status(400).json({
-        success: false,
-        message: 'SNPL orders require an approved credit line'
-      });
+    };
+    if (paymentMethod === 'bnpl') {
+      orderPayload.customer = req.user.id;
+      orderPayload.orderType = 'customer_bnpl';
+    } else {
+      orderPayload.merchant = req.user.id;
+      orderPayload.orderType = 'merchant_purchase';
     }
-
-    if (paymentMethod === 'snpl' && useCreditLine) {
-      const creditLine = await CreditLine.findById(useCreditLine);
-
-      if (!creditLine || creditLine.user.toString() !== req.user.id) {
-        return res.status(400).json({ success: false, message: 'Invalid credit line' });
-      }
-
-      if (creditLine.type !== 'snpl' || !['approved', 'active'].includes(creditLine.status)) {
-        return res.status(400).json({
-          success: false,
-          message: 'A valid active SNPL credit line is required'
-        });
-      }
-
-      if (creditLine.availableCredit < totalAmount) {
-        return res.status(400).json({ success: false, message: 'Insufficient credit available' });
-      }
-
-      creditLine.usedCredit += totalAmount;
-      creditLine.availableCredit = Math.max(0, (creditLine.availableCredit || 0) - totalAmount);
-      creditLine.orders.push(order._id);
-      await creditLine.save();
-
-      order.creditLine = creditLine._id;
-      order.paymentStatus = 'paid';
-    }
+    const order = new Order(orderPayload);
 
     if (paymentMethod === 'bnpl') {
       if (!useCreditLine) {
@@ -124,28 +90,23 @@ const createOrder = async (req, res) => {
         });
       }
 
-      const creditLine = await CreditLine.findById(useCreditLine);
-      if (!creditLine || creditLine.user.toString() !== req.user.id) {
-        return res.status(400).json({ success: false, message: 'Invalid credit line' });
-      }
+      const updated = await CreditLine.findOneAndUpdate(
+        {
+          _id: useCreditLine,
+          user: req.user.id,
+          type: 'bnpl',
+          status: { $in: ['approved', 'active'] },
+          availableCredit: { $gte: totalAmount }
+        },
+        {
+          $inc: { usedCredit: totalAmount, availableCredit: -totalAmount },
+          $push: { orders: order._id }
+        },
+        { new: true }
+      );
+      if (!updated) return res.status(400).json({ success: false, message: 'INSUFFICIENT_CREDIT' });
 
-      if (creditLine.type !== 'bnpl' || !['approved', 'active'].includes(creditLine.status)) {
-        return res.status(400).json({
-          success: false,
-          message: 'A valid active BNPL credit line is required'
-        });
-      }
-
-      if (creditLine.availableCredit < totalAmount) {
-        return res.status(400).json({ success: false, message: 'Insufficient BNPL credit available' });
-      }
-
-      creditLine.usedCredit += totalAmount;
-      creditLine.availableCredit = Math.max(0, (creditLine.availableCredit || 0) - totalAmount);
-      creditLine.orders.push(order._id);
-      await creditLine.save();
-
-      order.creditLine = creditLine._id;
+      order.creditLine = useCreditLine;
       order.paymentStatus = 'paid';
     }
 
@@ -175,6 +136,7 @@ const createOrder = async (req, res) => {
         status: 'completed'
       });
     }
+
     await Transaction.create({
       user: req.user.id,
       type: 'expense',
@@ -208,7 +170,9 @@ const getOrders = async (req, res) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
     
-    const query = { merchant: req.user.id };
+    const query = {
+      $or: [{ merchant: req.user.id }, { paymentMethod: 'bnpl', customer: req.user.id }]
+    };
     
     if (status) {
       query.status = status;
@@ -262,7 +226,10 @@ const getOrder = async (req, res) => {
     }
     
     // Check ownership
-    if (order.merchant.toString() !== req.user.id) {
+    const viewerId = String(req.user.id);
+    const ownsOrder =
+      order.merchant?.toString() === viewerId || order.customer?.toString() === viewerId;
+    if (!ownsOrder) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to view this order'
@@ -300,7 +267,8 @@ const updateOrderStatus = async (req, res) => {
 
     // Verify the user owns this order (either as merchant or supplier)
     const userId = req.user.id;
-    const isOwner = order.merchant?.toString() === userId;
+    const isOwner =
+      order.merchant?.toString() === userId || order.customer?.toString() === userId;
     const isSupplier = order.items?.some(item => item.supplier?.toString() === userId);
     if (!isOwner && !isSupplier) {
       return res.status(403).json({
@@ -310,6 +278,14 @@ const updateOrderStatus = async (req, res) => {
     }
     
     order.status = status;
+    if (status === 'cancelled' && order.creditLine && order.paymentStatus !== 'refunded') {
+      const bnplUserId = order.customer || order.merchant;
+      await CreditLine.findOneAndUpdate(
+        { _id: order.creditLine, user: bnplUserId, type: 'bnpl' },
+        { $inc: { usedCredit: -order.totalAmount, availableCredit: order.totalAmount } }
+      );
+      order.paymentStatus = 'refunded';
+    }
     
     if (status === 'delivered') {
       order.deliveredAt = Date.now();
@@ -380,3 +356,5 @@ module.exports = {
   updateOrderStatus,
   getSupplierOrders
 };
+
+

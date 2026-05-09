@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -46,12 +46,17 @@ import {
   CreditScoreGenerating,
   CreditScoreResult,
   CreditScoreShare,
-  SNPLDetails,
   Payments,
   PaymentsMain,
   BNPLApplication,
   BNPLApproved,
 } from './features/credit/pages';
+import { MerchantWallet } from './components/MerchantWallet';
+import { BankFinancingSelection } from './components/bankFinancing/BankFinancingSelection';
+import { BankFinancingConsent } from './components/bankFinancing/BankFinancingConsent';
+import { BankFinancingOffer } from './components/bankFinancing/BankFinancingOffer';
+import { BankFinancingDashboard } from './components/bankFinancing/BankFinancingDashboard';
+import { BankFinancingRejected } from './components/bankFinancing/BankFinancingRejected';
 
 // Profile feature screens
 import {
@@ -72,6 +77,9 @@ import {
   OrderTracking,
   NanoLoan,
   Rewards,
+  BNPLPlanSelection,
+  BNPLFactSheet,
+  PayLaterDashboard
 } from './features/customer/pages';
 
 // Common screens
@@ -104,7 +112,6 @@ export type Screen =
   | 'expenses'
   | 'payments'
   | 'payments-main'
-  | 'snpl-details'
   | 'bnpl-application'
   | 'bnpl-approved'
   | 'open-banking-journey'
@@ -130,7 +137,16 @@ export type Screen =
   | 'customer-marketplace'
   | 'nano-loan'
   | 'rewards'
-  | 'merchant-products';
+  | 'merchant-products'
+  | 'merchant-wallet'
+  | 'bnpl-plan-selection'
+  | 'bnpl-fact-sheet'
+  | 'paylater-dashboard'
+  | 'bank-financing-select'
+  | 'bank-financing-consent'
+  | 'bank-financing-offer'
+  | 'bank-financing-dashboard'
+  | 'bank-financing-rejected';
 
 export interface AppContextType {
   navigateTo: (screen: Screen) => void;
@@ -154,9 +170,9 @@ export default function App() {
   const [userType, setUserType] = useState<'supplier' | 'business' | 'customer' | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
-  const navigateTo = (screen: Screen) => {
+  const navigateTo = useCallback((screen: Screen) => {
     setCurrentScreen(screen);
-  };
+  }, []);
 
   useEffect(() => {
     const handleAuth401 = () => navigateTo('login');
@@ -234,8 +250,6 @@ export default function App() {
         return <Payments key="payments" />;
       case 'payments-main':
         return <PaymentsMain key="payments-main" />;
-      case 'snpl-details':
-        return <SNPLDetails key="snpl-details" />;
       case 'bnpl-application':
         return <BNPLApplication key="bnpl-application" />;
       case 'bnpl-approved':
@@ -288,6 +302,24 @@ export default function App() {
         return <Rewards key="rewards" />;
       case 'merchant-products':
         return <MerchantProducts key="merchant-products" />;
+      case 'merchant-wallet':
+        return <MerchantWallet key="merchant-wallet" />;
+      case 'bnpl-plan-selection':
+        return <BNPLPlanSelection key="bnpl-plan-selection" />;
+      case 'bnpl-fact-sheet':
+        return <BNPLFactSheet key="bnpl-fact-sheet" />;
+      case 'paylater-dashboard':
+        return <PayLaterDashboard key="paylater-dashboard" />;
+      case 'bank-financing-select':
+        return <BankFinancingSelection key="bank-financing-select" />;
+      case 'bank-financing-consent':
+        return <BankFinancingConsent key="bank-financing-consent" />;
+      case 'bank-financing-offer':
+        return <BankFinancingOffer key="bank-financing-offer" />;
+      case 'bank-financing-dashboard':
+        return <BankFinancingDashboard key="bank-financing-dashboard" />;
+      case 'bank-financing-rejected':
+        return <BankFinancingRejected key="bank-financing-rejected" />;
       default:
         return <SplashScreen key="splash" />;
     }

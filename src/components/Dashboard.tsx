@@ -18,6 +18,7 @@ import {
   TrendingUp,
   Package
 } from 'lucide-react';
+import { NotificationBell } from './common/NotificationBell';
 
 export function Dashboard() {
   const { navigateTo } = useContext(AppContext);
@@ -91,12 +92,15 @@ export function Dashboard() {
               {user?.businessAddress || 'Location'}
             </p>
           </div>
-          <button 
-            onClick={() => navigateTo('profile')}
-            className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center"
-          >
-            <User className="w-6 h-6 text-white" />
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button 
+              onClick={() => navigateTo('profile')}
+              className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center"
+            >
+              <User className="w-6 h-6 text-white" />
+            </button>
+          </div>
         </div>
 
         {/* Credit Score CTA */}

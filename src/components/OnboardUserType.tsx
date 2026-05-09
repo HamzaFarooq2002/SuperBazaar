@@ -51,7 +51,7 @@ export function OnboardUserType() {
       id: 'supplier' as const,
       icon: Package,
       title: "I'm a Supplier",
-      description: 'I want to supply products to businesses and offer SNPL terms',
+      description: 'I want to supply products to businesses through verified marketplace orders',
       benefits: ['Reach more buyers', 'Manage Orders'],
       color: 'from-[#102542] to-[#3D8A75]'
     },

@@ -91,7 +91,7 @@ export function CreditScoreInitiate() {
                 Why Check Your Credit Score?
               </p>
               <p className="text-[11px] text-[#102542] opacity-70 leading-relaxed">
-                A good credit score helps you get better loan terms, higher credit limits, and builds trust with suppliers offering SNPL.
+                A good credit score helps you get better financing terms, higher credit limits, and builds trust with verified suppliers.
               </p>
             </div>
           </div>
@@ -135,7 +135,7 @@ export function CreditScoreInitiate() {
               'Payment history & transaction patterns',
               'Business registration details',
               'Outstanding loans & credit utilization',
-              'Supplier relationships & SNPL usage'
+              'Supplier relationships & bank financing usage'
             ].map((item, index) => (
               <motion.div
                 key={index}

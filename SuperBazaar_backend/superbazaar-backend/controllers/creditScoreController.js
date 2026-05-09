@@ -3,7 +3,7 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const CreditLine = require('../models/CreditLine');
 const Store = require('../models/Store');
-const { scoreUser, calculateCreditLimit } = require('../utils/creditScoring');
+const { scoreUser, calculateCreditLimit, ScoringServiceUnavailableError } = require('../utils/creditScoring');
 
 // @desc    Trigger ML credit scoring for the logged-in user
 // @route   POST /api/credit/score
@@ -61,9 +61,10 @@ const scoreCreditML = async (req, res) => {
   } catch (error) {
     console.error('ML credit scoring error:', error.message);
 
-    if (error.message.includes('FastAPI') || error.message.includes('fetch')) {
+    if (error instanceof ScoringServiceUnavailableError || error.message.includes('FastAPI') || error.message.includes('fetch')) {
       return res.status(503).json({
         success: false,
+        code: 'SCORING_SERVICE_UNAVAILABLE',
         message: 'Credit scoring service temporarily unavailable. Ensure FastAPI is running on port 8000.',
         error: error.message
       });
