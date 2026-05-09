@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
-import { ArrowLeft, CreditCard, Phone } from 'lucide-react';
+import { ArrowLeft, CreditCard, Phone, Zap } from 'lucide-react';
 import svgPaths from "../imports/svg-2pthmw0ane";
 
 const imgRectangle4 = 'https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&fit=crop&w=1200&q=80';
@@ -48,12 +48,16 @@ export function OnboardCNIC() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [prefillPhone, setPrefillPhone] = React.useState('');
 
   React.useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7530/ingest/c73b5c80-38a1-4b6e-a636-db456719856f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e8ce2'},body:JSON.stringify({sessionId:'5e8ce2',runId:'initial',hypothesisId:'H-ONBOARD-CNIC-LOAD',location:'src/components/OnboardCNIC.tsx:49',message:'OnboardCNIC mounted',data:{hasRefreshUser:typeof refreshUser==='function'},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  }, [refreshUser]);
+    const fallback = sessionStorage.getItem('autofetchFallbackPhone');
+    if (fallback) {
+      setPhone(fallback);
+      sessionStorage.removeItem('autofetchFallbackPhone');
+    }
+  }, []);
+
 
   const formatCNIC = (value: string) => {
     const numbers = value.replace(/\D/g, '');
@@ -115,7 +119,7 @@ export function OnboardCNIC() {
         >
           <h2 className="text-[24px] text-black tracking-[-0.24px] mb-2">Verify Your Identity</h2>
           <p className="text-[16px] text-black opacity-40 leading-relaxed">
-            Enter your CNIC and phone number for verification
+            Auto-fill from your bank, or enter your details below
           </p>
         </motion.div>
 
@@ -126,6 +130,31 @@ export function OnboardCNIC() {
           transition={{ delay: 0.1 }}
           className="space-y-5"
         >
+          {/* Open Banking Auto-fill Banner */}
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-[#102542] to-[#3D8A75] rounded-[10px] p-4 mb-5 cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => navigateTo('onboard-openbanking-autofetch')}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Zap className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-white text-[13px] font-semibold">Auto-fill with Open Banking</p>
+                <p className="text-white/70 text-[11px] mt-0.5">Skip manual entry — we'll fetch your details securely</p>
+              </div>
+              <div className="ml-auto text-white/60 text-[11px]">Try →</div>
+            </div>
+          </motion.div>
+
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-[11px] text-gray-400">or enter manually</span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+
           {/* CNIC Input */}
           <div>
             <label className="block text-[13px] text-black opacity-60 mb-2 ml-1">
@@ -215,12 +244,14 @@ export function OnboardCNIC() {
 
         {error && <p className="text-red-600 text-sm mt-3 text-center">{error}</p>}
 
-        <button
-          onClick={() => navigateTo('onboard-otp')}
-          className="w-full mt-4 text-[14px] text-black opacity-60 hover:opacity-100 transition-opacity"
-        >
-          Skip for now
-        </button>
+        {import.meta.env.VITE_DEMO_SKIP_KYC === 'true' && (
+          <button
+            onClick={() => navigateTo('onboard-otp')}
+            className="w-full mt-4 text-[14px] text-black opacity-60 hover:opacity-100 transition-opacity"
+          >
+            Skip for now (demo only)
+          </button>
+        )}
       </div>
 
       {/* Home Indicator */}

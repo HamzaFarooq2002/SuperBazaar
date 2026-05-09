@@ -5,6 +5,7 @@ import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
 import { ShoppingBag, Gift, Package, Wallet, User, ChevronRight, Star, BarChart3 } from 'lucide-react';
+import { BankVerifiedBadge } from './common/BankVerifiedBadge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function CustomerDashboard() {
@@ -94,6 +95,11 @@ export function CustomerDashboard() {
           <div>
             <p className="text-white/80 text-sm mb-1">Welcome back,</p>
             <h2 className="text-white">{user?.name || 'Customer'}</h2>
+            {(user as any)?.openBanking?.autoFetched && (
+              <div className="mt-1.5">
+                <BankVerifiedBadge bankName={(user as any).openBanking.bankName} />
+              </div>
+            )}
           </div>
           <div className="flex gap-3">
             <button 

@@ -7,7 +7,9 @@ const {
   acceptOffer,
   declineOffer,
   listApplications,
-  getApplication
+  getApplication,
+  repayInstallment,
+  getSchedule
 } = require('../controllers/bankFinancingController');
 
 router.use(protect, restrictTo('merchant'));
@@ -17,6 +19,8 @@ router.post('/apply', applyForFinancing);
 router.post('/:id/accept', acceptOffer);
 router.post('/:id/decline', declineOffer);
 router.get('/', listApplications);
+router.get('/:id/schedule', getSchedule);
+router.post('/:id/repay', repayInstallment);
 router.get('/:id', getApplication);
 
 module.exports = router;

@@ -527,6 +527,15 @@ const usersAPI = {
       throw error;
     }
   },
+
+  getHealthConfig: async () => {
+    try {
+      const response = await axiosInstance.get('/health/config');
+      return handleResponse(response);
+    } catch (error) {
+      return { success: true, data: { pbbDemoMode: false } };
+    }
+  },
 };
 
 const notificationsAPI = {
@@ -543,7 +552,9 @@ const bankFinancingAPI = {
   accept: async (id, payload) => handleResponse(await axiosInstance.post(`/bank-financing/${id}/accept`, payload)),
   decline: async (id) => handleResponse(await axiosInstance.post(`/bank-financing/${id}/decline`)),
   list: async () => handleResponse(await axiosInstance.get('/bank-financing')),
-  get: async (id) => handleResponse(await axiosInstance.get(`/bank-financing/${id}`))
+  get: async (id) => handleResponse(await axiosInstance.get(`/bank-financing/${id}`)),
+  repay: async (id, payload) => handleResponse(await axiosInstance.post(`/bank-financing/${id}/repay`, payload)),
+  schedule: async (id) => handleResponse(await axiosInstance.get(`/bank-financing/${id}/schedule`)),
 };
 
 const bnplAPI = {
@@ -551,6 +562,32 @@ const bnplAPI = {
   initiate: async (payload) => handleResponse(await axiosInstance.post('/bnpl/initiate', payload)),
   getOrders: async () => handleResponse(await axiosInstance.get('/bnpl/orders')),
   repay: async (orderId, payload) => handleResponse(await axiosInstance.post(`/bnpl/repay/${orderId}`, payload))
+};
+
+const openBankingAPI = {
+  lookup: async (payload) => {
+    try {
+      const response = await axiosInstance.post('/openbanking/lookup', payload);
+      return handleResponse(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+  confirm: async (payload) => {
+    try {
+      const response = await axiosInstance.post('/openbanking/confirm', payload);
+      return handleResponse(response);
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+const pbbAPI = {
+  initiate: async (payload) => handleResponse(await axiosInstance.post('/payments/pbb/initiate', payload)),
+  auth: async (sessionId, payload) => handleResponse(await axiosInstance.post(`/payments/pbb/${sessionId}/auth`, payload)),
+  confirm: async (sessionId, payload) => handleResponse(await axiosInstance.post(`/payments/pbb/${sessionId}/confirm`, payload)),
+  getSession: async (sessionId) => handleResponse(await axiosInstance.get(`/payments/pbb/${sessionId}`)),
 };
 
 // Export API service
@@ -565,6 +602,8 @@ const api = {
   notifications: notificationsAPI,
   bnpl: bnplAPI,
   bankFinancing: bankFinancingAPI,
+  openBanking: openBankingAPI,
+  pbb: pbbAPI,
   // Export token service for direct access if needed
   token: TokenService,
 };

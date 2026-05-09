@@ -163,7 +163,9 @@ const initiate = async (req, res) => {
         dueDate,
         lateFee: 0,
         paidPrincipal: 0
-      }
+      },
+      status: 'delivered',
+      deliveredAt: new Date()
     });
 
     creditLine.orders.push(order._id);

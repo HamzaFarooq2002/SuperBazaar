@@ -11,9 +11,11 @@ const repaymentInstallmentSchema = new mongoose.Schema({
   paidAt: Date,
   status: {
     type: String,
-    enum: ['PENDING', 'PAID', 'OVERDUE'],
+    enum: ['PENDING', 'PAID', 'OVERDUE', 'PARTIAL'],
     default: 'PENDING'
-  }
+  },
+  installmentType: { type: String, enum: ['ORIGINAL', 'PARTIAL_REMAINDER'], default: 'ORIGINAL' },
+  parentInstallmentIndex: { type: Number, default: null }
 }, { _id: false });
 
 const bankFinancingApplicationSchema = new mongoose.Schema({

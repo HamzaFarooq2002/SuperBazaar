@@ -23,6 +23,8 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const bnplRoutes = require('./routes/bnplRoutes');
 const bankFinancingRoutes = require('./routes/bankFinancingRoutes');
+const openBankingRoutes = require('./routes/openBankingRoutes');
+const pbbRoutes = require('./routes/pbbRoutes');
 const { runOverdueJob } = require('./jobs/overdueJob');
 const { runReminderJob } = require('./jobs/reminderJob');
 const creditConfig = require('./config/creditConfig');
@@ -52,6 +54,13 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/bnpl', bnplRoutes);
 app.use('/api/bank-financing', bankFinancingRoutes);
+app.use('/api/openbanking', openBankingRoutes);
+app.use('/api/payments/pbb', pbbRoutes);
+
+// Health config endpoint (returns feature flags for frontend)
+app.get('/api/health/config', (req, res) => {
+  res.json({ pbbDemoMode: process.env.PBB_DEMO_MODE === 'true' });
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -112,7 +121,5 @@ mongoose.connect(MONGODB_URI, {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Promise Rejection:', err);
-  // Close server & exit process
   process.exit(1);
 });
-

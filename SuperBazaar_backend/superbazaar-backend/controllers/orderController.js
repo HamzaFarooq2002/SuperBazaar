@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const CreditLine = require('../models/CreditLine');
 const Transaction = require('../models/Transaction');
 const { DELIVERY_FEE, TAX_RATE } = require('../config/pricing');
+const { markOrderDeliveredOnCheckout } = require('../utils/markOrderDeliveredOnCheckout');
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -109,6 +110,8 @@ const createOrder = async (req, res) => {
       order.creditLine = useCreditLine;
       order.paymentStatus = 'paid';
     }
+
+    markOrderDeliveredOnCheckout(order);
 
     await order.save();
 

@@ -4,6 +4,7 @@ import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import { useOrder } from '../hooks/useOrder';
+import { usePaymentSession } from '../contexts/PaymentSessionContext';
 import api from '../services/api';
 import { ArrowLeft, Banknote, CreditCard, Landmark, ChevronRight } from 'lucide-react';
 import { DELIVERY_FEE } from '../config/pricing';
@@ -13,7 +14,8 @@ export function PaymentMethod() {
   const { items, totalPrice, clearCart } = useCart();
   const { user } = useAuth();
   const { setCurrentOrder, shippingFormData, setShippingFormData } = useOrder();
-  const [selectedMethod, setSelectedMethod] = useState<'cash' | 'bnpl' | 'bank_financing' | null>('cash');
+  const { setSession } = usePaymentSession();
+  const [selectedMethod, setSelectedMethod] = useState<'cash' | 'bnpl' | 'bank_financing' | 'pbb' | null>('cash');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [bnplEligibility, setBnplEligibility] = useState<any>(null);
@@ -76,6 +78,29 @@ export function PaymentMethod() {
         }
       };
 
+      if (selectedMethod === 'pbb') {
+        const orderDraft = {
+          items: items.map(item => ({ productId: item.productId, quantity: item.quantity, price: item.price })),
+          shippingAddress: {
+            recipientName: shippingFormData?.name || user?.name || '',
+            phone: user?.phone || '',
+            street: shippingFormData?.address || user?.businessAddress || 'Address not specified',
+            city: shippingFormData?.city || 'Karachi',
+            state: shippingFormData?.area || '',
+            postalCode: '75500',
+            country: 'Pakistan'
+          },
+          totalAmount: orderTotal
+        };
+        sessionStorage.setItem('pbbIntent', 'order');
+        sessionStorage.setItem('pbbOrderDraft', JSON.stringify(orderDraft));
+        sessionStorage.setItem('pbbAmount', String(orderTotal));
+        setSession((prev: any) => ({ ...prev, intent: 'order', orderDraft, amount: orderTotal }));
+        navigateTo('pbb-bank-select');
+        setLoading(false);
+        return;
+      }
+
       if (selectedMethod === 'bnpl') {
         sessionStorage.setItem('pendingBnplOrder', JSON.stringify(orderData));
         navigateTo('bnpl-plan-selection');
@@ -132,6 +157,16 @@ export function PaymentMethod() {
       color: 'from-[#102542] to-[#3D8A75]',
       details: `${bnplEligibility?.tier || ''} tier`
     }] : []),
+    {
+      id: 'pbb' as const,
+      icon: Landmark,
+      title: 'Pay by Bank',
+      description: 'Direct bank account debit — instant payment',
+      badge: 'Secure',
+      badgeStyle: 'bg-blue-100 text-blue-700',
+      color: 'from-blue-700 to-blue-900',
+      details: 'Powered by Open Banking'
+    },
     {
       id: 'cash' as const,
       icon: Banknote,

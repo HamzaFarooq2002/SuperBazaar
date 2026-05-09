@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, Inbox, CheckCircle2, Clock, Landmark, Info } from 'lucide-react';
+import { ArrowLeft, Inbox, CheckCircle2, Clock } from 'lucide-react';
 import { AppContext } from '../../App';
 import api from '../../services/api';
 import { BankBrandTile, getBankBrand } from './bankBrands';
@@ -153,6 +153,12 @@ export function BankFinancingDashboard() {
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-2 border-[#3D8A75] border-t-transparent rounded-full animate-spin" />
           </div>
+        ) : loading ? (
+          <div className="space-y-3 pt-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-16 bg-white rounded-2xl animate-pulse border border-gray-100" />
+            ))}
+          </div>
         ) : (
           <>
             {/* Active application installments */}
@@ -242,36 +248,41 @@ export function BankFinancingDashboard() {
             )}
 
             {/* Repay actions */}
-            {active && (
+            {active && ['DISBURSED', 'REPAYING'].includes(active.applicationStatus) && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 }}
-                className="bg-white border border-gray-100 rounded-2xl p-5 mb-4 shadow-sm"
+                className="mt-4"
               >
-                <div className="flex items-start gap-2 mb-3">
-                  <Info className="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    Repayments are made directly through {active.selectedBank}'s app, branch, or online banking. In-app
-                    repayment is coming soon.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    disabled
-                    className="h-11 rounded-xl bg-gray-100 text-gray-400 text-sm font-medium cursor-not-allowed flex items-center justify-center gap-1"
-                  >
-                    <Landmark className="w-4 h-4" />
-                    Pay via bank
-                  </button>
-                  <button
-                    disabled
-                    className="h-11 rounded-xl bg-gray-100 text-gray-400 text-sm font-medium cursor-not-allowed"
-                  >
-                    Other account
-                  </button>
-                </div>
-                <p className="text-[10px] text-gray-400 text-center mt-2">Coming soon</p>
+                {(() => {
+                  const nextDue = sortedInstallments(active).find((i: any) => i.status === 'PENDING' || i.status === 'OVERDUE' || i.status === 'PARTIAL');
+                  const nextDueIdx = nextDue ? sortedInstallments(active).findIndex((i: any) => i.status === 'PENDING' || i.status === 'OVERDUE' || i.status === 'PARTIAL') : -1;
+                  return nextDue ? (
+                    <button
+                      onClick={() => {
+                        sessionStorage.setItem('repayAppId', active._id);
+                        if (nextDueIdx >= 0) sessionStorage.setItem('repayAutoSelectIdx', String(nextDueIdx));
+                        navigateTo('bank-financing-repay');
+                      }}
+                      className="w-full h-12 rounded-xl bg-gradient-to-r from-[#3D8A75] to-[#2d6b5c] text-white font-medium text-sm flex items-center justify-center gap-2"
+                    >
+                      Pay Next Installment — PKR {Number(nextDue.totalDue - (nextDue.paidAmount || 0)).toLocaleString()}
+                    </button>
+                  ) : (
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+                      <p className="text-green-800 text-sm font-medium">All installments paid!</p>
+                    </div>
+                  );
+                })()}
+                <button
+                  onClick={() => {
+                    sessionStorage.setItem('repayAppId', active._id);
+                    navigateTo('bank-financing-repay');
+                  }}
+                  className="w-full mt-2 text-[12px] text-[#3D8A75] underline text-center"
+                >
+                  View all installments &amp; make partial payments
+                </button>
               </motion.div>
             )}
 

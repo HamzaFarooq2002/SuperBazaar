@@ -80,7 +80,7 @@ const orderSchema = new mongoose.Schema({
   // Payment Method
   paymentMethod: {
     type: String,
-    enum: ['cash', 'bank_transfer', 'bnpl', 'bank_financing'],
+    enum: ['cash', 'bank_transfer', 'bnpl', 'bank_financing', 'pbb'],
     required: true
   },
   paymentStatus: {

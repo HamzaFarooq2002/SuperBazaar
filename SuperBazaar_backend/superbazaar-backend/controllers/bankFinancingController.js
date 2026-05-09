@@ -548,7 +548,9 @@ const acceptOffer = async (req, res) => {
       paymentMethod: 'bank_financing',
       paymentStatus: 'paid',
       financingStatus: 'BANK_DISBURSED',
-      shippingAddress
+      shippingAddress,
+      status: 'delivered',
+      deliveredAt: new Date()
     });
 
     await order.save();
@@ -657,11 +659,222 @@ const getApplication = async (req, res) => {
   }
 };
 
+async function persistLoanRepayment(userId, app, idx, payAmount, paymentMethod) {
+  const schedule = app.repaymentSchedule;
+  const inst = schedule[idx];
+  const installmentDue = Number(inst.totalDue || 0);
+  const isPartial = payAmount < installmentDue;
+  inst.paidAmount = (inst.paidAmount || 0) + payAmount;
+  inst.paidAt = new Date();
+  inst.status = isPartial ? 'PARTIAL' : 'PAID';
+
+  let newInstIndex = null;
+  if (isPartial) {
+    const remainder = installmentDue - payAmount;
+    newInstIndex = schedule.length;
+    schedule.push({
+      dueDate: inst.dueDate,
+      principalAmount: 0,
+      markupAmount: 0,
+      processingFeeAmount: 0,
+      totalDue: remainder,
+      paidAmount: 0,
+      status: 'PENDING',
+      installmentType: 'PARTIAL_REMAINDER',
+      parentInstallmentIndex: idx
+    });
+  }
+
+  const allPaid = schedule.every((i) => i.status === 'PAID');
+  app.repaymentStatus = allPaid ? 'COMPLETED' : 'ACTIVE';
+  if (allPaid) app.applicationStatus = 'CLOSED';
+
+  await app.save();
+
+  const txn = await Transaction.create({
+    user: userId,
+    type: 'loan_repayment',
+    category: 'repayment',
+    amount: payAmount,
+    description: isPartial ? `Partial payment on installment ${idx + 1} of ${app.applicationId}` : `Full installment ${idx + 1} of ${app.applicationId}`,
+    paymentMethod: paymentMethod || 'wallet',
+    status: 'completed',
+    notes: isPartial ? `Partial: PKR ${payAmount} of PKR ${installmentDue}` : undefined
+  });
+
+  const remaining = schedule
+    .filter((i) => i.status !== 'PAID')
+    .reduce((sum, i) => sum + (i.totalDue - (i.paidAmount || 0)), 0);
+
+  const nextPending = schedule.find((i) => i.status === 'PENDING' || i.status === 'OVERDUE' || i.status === 'PARTIAL');
+
+  return {
+    applicationId: app.applicationId,
+    installmentIndex: idx,
+    isPartial,
+    amountPaid: payAmount,
+    remainderCreated: isPartial ? { installmentIndex: newInstIndex, amount: installmentDue - payAmount, dueDate: inst.dueDate, installmentType: 'PARTIAL_REMAINDER' } : null,
+    remainingDue: remaining,
+    nextDueDate: nextPending?.dueDate || null,
+    applicationStatus: app.applicationStatus,
+    transactionId: txn.transactionId
+  };
+}
+
+/** Called from PBB confirm while mock session is still AUTHED (before SUCCESS). */
+async function applyLoanRepaymentFromAuthedPbb(pbbTxn, userId) {
+  if (!pbbTxn || String(pbbTxn.user) !== String(userId)) {
+    const err = new Error('Invalid session.');
+    err.httpStatus = 403;
+    throw err;
+  }
+  if (pbbTxn.status !== 'AUTHED') {
+    const err = new Error('Session not authorized.');
+    err.httpStatus = 400;
+    err.code = 'INVALID_STATE';
+    throw err;
+  }
+  if (pbbTxn.intent !== 'bank_financing_repay') {
+    const err = new Error('Invalid intent.');
+    err.httpStatus = 400;
+    throw err;
+  }
+
+  const meta = pbbTxn.meta || {};
+  const applicationMongoId = meta.applicationId;
+  const idx = Number(meta.installmentIndex);
+  const payAmount = Number(pbbTxn.amount || 0);
+
+  if (!applicationMongoId) {
+    const err = new Error('Missing application reference.');
+    err.httpStatus = 400;
+    throw err;
+  }
+  if (Number.isNaN(idx) || idx < 0) {
+    const err = new Error('Invalid installment index.');
+    err.httpStatus = 400;
+    throw err;
+  }
+  if (payAmount <= 0) {
+    const err = new Error('Invalid amount.');
+    err.httpStatus = 400;
+    throw err;
+  }
+
+  const app = await BankFinancingApplication.findOne({ _id: applicationMongoId, merchant: userId });
+  if (!app) {
+    const err = new Error('Application not found.');
+    err.httpStatus = 404;
+    err.code = 'APPLICATION_NOT_FOUND';
+    throw err;
+  }
+
+  const schedule = app.repaymentSchedule;
+  if (!schedule || idx >= schedule.length) {
+    const err = new Error('Invalid installment index.');
+    err.httpStatus = 400;
+    throw err;
+  }
+
+  const inst = schedule[idx];
+  if (inst.status === 'PAID') {
+    const err = new Error('This installment is already paid.');
+    err.httpStatus = 409;
+    err.code = 'ALREADY_PAID';
+    throw err;
+  }
+
+  const installmentDue = Number(inst.totalDue || 0);
+  const minPayment = Math.ceil(installmentDue * 0.10);
+
+  if (payAmount < minPayment) {
+    const err = new Error(`Minimum payment is PKR ${minPayment}.`);
+    err.httpStatus = 400;
+    err.code = 'BELOW_MIN_PAYMENT';
+    err.minPayment = minPayment;
+    throw err;
+  }
+  if (payAmount > installmentDue) {
+    const err = new Error(`Cannot exceed installment amount PKR ${installmentDue}.`);
+    err.httpStatus = 400;
+    err.code = 'EXCEEDS_INSTALLMENT';
+    throw err;
+  }
+
+  return persistLoanRepayment(userId, app, idx, payAmount, 'pbb');
+}
+
+// POST /api/bank-financing/:id/repay
+const repayInstallment = async (req, res) => {
+  try {
+    const { installmentIndex, amount, paymentMethod, mockPaymentRef } = req.body;
+    const payAmount = Number(amount || 0);
+    const idx = Number(installmentIndex);
+
+    if (Number.isNaN(idx) || idx < 0) return res.status(400).json({ success: false, message: 'Invalid installmentIndex.' });
+    if (payAmount <= 0) return res.status(400).json({ success: false, message: 'Invalid amount.' });
+
+    const app = await BankFinancingApplication.findOne({ _id: req.params.id, merchant: req.user.id });
+    if (!app) return res.status(404).json({ success: false, code: 'APPLICATION_NOT_FOUND', message: 'Application not found.' });
+
+    const schedule = app.repaymentSchedule;
+    if (!schedule || idx >= schedule.length) return res.status(400).json({ success: false, message: 'Invalid installment index.' });
+
+    const inst = schedule[idx];
+    if (inst.status === 'PAID') return res.status(409).json({ success: false, code: 'ALREADY_PAID', message: 'This installment is already paid.' });
+
+    const installmentDue = Number(inst.totalDue || 0);
+    const minPayment = Math.ceil(installmentDue * 0.10);
+
+    if (payAmount < minPayment) return res.status(400).json({ success: false, code: 'BELOW_MIN_PAYMENT', message: `Minimum payment is PKR ${minPayment}.`, minPayment });
+    if (payAmount > installmentDue) return res.status(400).json({ success: false, code: 'EXCEEDS_INSTALLMENT', message: `Cannot exceed installment amount PKR ${installmentDue}.` });
+
+    if (paymentMethod === 'wallet') {
+      const user = await User.findById(req.user.id);
+      if ((user.walletBalance || 0) < payAmount) {
+        return res.status(400).json({ success: false, code: 'INSUFFICIENT_WALLET_BALANCE', message: 'Insufficient wallet balance.' });
+      }
+      await User.findByIdAndUpdate(req.user.id, { $inc: { walletBalance: -payAmount } });
+    } else if (paymentMethod === 'pbb') {
+      if (!mockPaymentRef) return res.status(400).json({ success: false, code: 'PBB_REF_NOT_FOUND', message: 'mockPaymentRef required for PBB payments.' });
+      const MockPaymentTransaction = require('../models/MockPaymentTransaction');
+      const pbbTxn = await MockPaymentTransaction.findOne({ pbbId: mockPaymentRef, status: 'SUCCESS', user: req.user.id });
+      if (!pbbTxn) return res.status(400).json({ success: false, code: 'PBB_REF_NOT_FOUND', message: 'PBB transaction not found or not successful.' });
+    } else {
+      return res.status(400).json({ success: false, message: 'paymentMethod must be wallet or pbb.' });
+    }
+
+    const data = await persistLoanRepayment(req.user.id, app, idx, payAmount, paymentMethod);
+
+    return res.json({
+      success: true,
+      data
+    });
+  } catch (err) {
+    console.error('repayInstallment error:', err);
+    return res.status(500).json({ success: false, message: 'Repayment error', error: err.message });
+  }
+};
+
+// GET /api/bank-financing/:id/schedule
+const getSchedule = async (req, res) => {
+  try {
+    const app = await BankFinancingApplication.findOne({ _id: req.params.id, merchant: req.user.id }).select('applicationId repaymentSchedule repaymentStatus applicationStatus');
+    if (!app) return res.status(404).json({ success: false, message: 'Application not found.' });
+    return res.json({ success: true, data: { applicationId: app.applicationId, repaymentSchedule: app.repaymentSchedule, repaymentStatus: app.repaymentStatus, applicationStatus: app.applicationStatus } });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Error fetching schedule', error: err.message });
+  }
+};
+
 module.exports = {
   getEligibility,
   applyForFinancing,
   acceptOffer,
   declineOffer,
   listApplications,
-  getApplication
+  getApplication,
+  repayInstallment,
+  getSchedule,
+  applyLoanRepaymentFromAuthedPbb
 };

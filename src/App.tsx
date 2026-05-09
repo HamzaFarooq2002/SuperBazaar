@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { OrderProvider } from './contexts/OrderContext';
+import { PaymentSessionProvider } from './contexts/PaymentSessionContext';
 
 // Auth feature screens
 import {
@@ -52,11 +53,22 @@ import {
   BNPLApproved,
 } from './features/credit/pages';
 import { MerchantWallet } from './components/MerchantWallet';
+import { OpenBankingAutoFetch } from './components/auth/OpenBankingAutoFetch';
+import { OpenBankingReview } from './components/auth/OpenBankingReview';
 import { BankFinancingSelection } from './components/bankFinancing/BankFinancingSelection';
 import { BankFinancingConsent } from './components/bankFinancing/BankFinancingConsent';
 import { BankFinancingOffer } from './components/bankFinancing/BankFinancingOffer';
 import { BankFinancingDashboard } from './components/bankFinancing/BankFinancingDashboard';
 import { BankFinancingRejected } from './components/bankFinancing/BankFinancingRejected';
+import { BankFinancingRepay } from './components/bankFinancing/BankFinancingRepay';
+import { BankFinancingRepayMethod } from './components/bankFinancing/BankFinancingRepayMethod';
+import { BankFinancingRepaySuccess } from './components/bankFinancing/BankFinancingRepaySuccess';
+import { PBBBankSelect } from './components/payments/pbb/PBBBankSelect';
+import { PBBLogin } from './components/payments/pbb/PBBLogin';
+import { PBBConfirm } from './components/payments/pbb/PBBConfirm';
+import { PBBProcessing } from './components/payments/pbb/PBBProcessing';
+import { PBBSuccess } from './components/payments/pbb/PBBSuccess';
+import { PBBFailure } from './components/payments/pbb/PBBFailure';
 
 // Profile feature screens
 import {
@@ -98,6 +110,8 @@ export type Screen =
   | 'onboard-documents'
   | 'onboard-congratulations'
   | 'onboard-complete'
+  | 'onboard-openbanking-autofetch'
+  | 'onboard-openbanking-review'
   | 'onboarding1' 
   | 'onboarding2' 
   | 'signup' 
@@ -146,7 +160,16 @@ export type Screen =
   | 'bank-financing-consent'
   | 'bank-financing-offer'
   | 'bank-financing-dashboard'
-  | 'bank-financing-rejected';
+  | 'bank-financing-rejected'
+  | 'bank-financing-repay'
+  | 'bank-financing-repay-method'
+  | 'bank-financing-repay-success'
+  | 'pbb-bank-select'
+  | 'pbb-login'
+  | 'pbb-confirm'
+  | 'pbb-processing'
+  | 'pbb-success'
+  | 'pbb-failure';
 
 export interface AppContextType {
   navigateTo: (screen: Screen) => void;
@@ -177,11 +200,8 @@ export default function App() {
   useEffect(() => {
     const handleAuth401 = () => navigateTo('login');
     window.addEventListener('auth-401', handleAuth401);
-    // #region agent log
-    fetch('http://127.0.0.1:7530/ingest/c73b5c80-38a1-4b6e-a636-db456719856f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e8ce2'},body:JSON.stringify({sessionId:'5e8ce2',runId:'initial',hypothesisId:'H-RUNTIME-START',location:'src/App.tsx:165',message:'App mounted',data:{screen:currentScreen,href:window.location.href},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return () => window.removeEventListener('auth-401', handleAuth401);
-  }, []);
+  }, [navigateTo]);
 
   const contextValue: AppContextType = {
     navigateTo,
@@ -222,6 +242,10 @@ export default function App() {
         return <OnboardCongratulations key="onboard-congratulations" />;
       case 'onboard-complete':
         return <OnboardComplete key="onboard-complete" />;
+      case 'onboard-openbanking-autofetch':
+        return <OpenBankingAutoFetch key="onboard-openbanking-autofetch" />;
+      case 'onboard-openbanking-review':
+        return <OpenBankingReview key="onboard-openbanking-review" />;
       case 'onboarding1':
         return <OnboardingOne key="onboarding1" />;
       case 'onboarding2':
@@ -320,6 +344,24 @@ export default function App() {
         return <BankFinancingDashboard key="bank-financing-dashboard" />;
       case 'bank-financing-rejected':
         return <BankFinancingRejected key="bank-financing-rejected" />;
+      case 'bank-financing-repay':
+        return <BankFinancingRepay key="bank-financing-repay" />;
+      case 'bank-financing-repay-method':
+        return <BankFinancingRepayMethod key="bank-financing-repay-method" />;
+      case 'bank-financing-repay-success':
+        return <BankFinancingRepaySuccess key="bank-financing-repay-success" />;
+      case 'pbb-bank-select':
+        return <PBBBankSelect key="pbb-bank-select" />;
+      case 'pbb-login':
+        return <PBBLogin key="pbb-login" />;
+      case 'pbb-confirm':
+        return <PBBConfirm key="pbb-confirm" />;
+      case 'pbb-processing':
+        return <PBBProcessing key="pbb-processing" />;
+      case 'pbb-success':
+        return <PBBSuccess key="pbb-success" />;
+      case 'pbb-failure':
+        return <PBBFailure key="pbb-failure" />;
       default:
         return <SplashScreen key="splash" />;
     }
@@ -329,22 +371,24 @@ export default function App() {
     <AuthProvider>
       <CartProvider>
         <OrderProvider>
-          <AppContext.Provider value={contextValue}>
-            <div className="min-h-screen bg-gray-50">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentScreen}
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-              >
-                {renderScreen()}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </AppContext.Provider>
+          <PaymentSessionProvider>
+            <AppContext.Provider value={contextValue}>
+              <div className="min-h-screen bg-gray-50">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentScreen}
+                    variants={pageVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                  >
+                    {renderScreen()}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </AppContext.Provider>
+          </PaymentSessionProvider>
         </OrderProvider>
       </CartProvider>
     </AuthProvider>

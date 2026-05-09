@@ -19,6 +19,7 @@ import {
   Package
 } from 'lucide-react';
 import { NotificationBell } from './common/NotificationBell';
+import { BankVerifiedBadge } from './common/BankVerifiedBadge';
 
 export function Dashboard() {
   const { navigateTo } = useContext(AppContext);
@@ -91,6 +92,11 @@ export function Dashboard() {
               {user?.businessName && `${user.businessName}, `}
               {user?.businessAddress || 'Location'}
             </p>
+            {(user as any)?.openBanking?.autoFetched && (
+              <div className="mt-2">
+                <BankVerifiedBadge bankName={(user as any).openBanking.bankName} />
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />

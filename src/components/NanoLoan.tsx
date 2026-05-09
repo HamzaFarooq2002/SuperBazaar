@@ -223,7 +223,22 @@ export function NanoLoan() {
           </p>
           <div className="text-center mb-6">
             <p className="text-[#3D8A75] text-[40px] mb-2">PKR {loanAmount.toLocaleString()}</p>
-            {loanDetails && <p className="text-gray-500 text-sm">Monthly Payment: PKR {loanDetails.monthlyPayment.toLocaleString()}</p>}
+            {loanDetails && (
+              <div className="bg-[#e1f4e3] rounded-xl p-4 mt-3 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[#102542]/70 text-sm">Monthly Payment</span>
+                  <span className="text-[#3D8A75] text-[18px] font-bold">PKR {loanDetails.monthlyPayment.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[#102542]/70 text-sm">Total Repayable</span>
+                  <span className="text-[#102542] text-sm font-medium">PKR {Math.round(loanAmount * (1 + (tier?.serviceChargeRate || 0))).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[#102542]/70 text-sm">Service Charge</span>
+                  <span className="text-[#102542] text-sm">PKR {Math.round(loanAmount * (tier?.serviceChargeRate || 0)).toLocaleString()} ({((tier?.serviceChargeRate || 0) * 100).toFixed(2)}%)</span>
+                </div>
+              </div>
+            )}
           </div>
           {maxLoan > minLoan ? (
             <input
@@ -358,6 +373,11 @@ export function NanoLoan() {
 
       {/* Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-white/60 px-6 py-4">
+        {tier && (
+          <p className="text-[11px] text-[#3D8A75] text-center mb-2">
+            Funds disburse to your wallet within 60 seconds of approval.
+          </p>
+        )}
         <button
           onClick={handleApply}
           disabled={loading}

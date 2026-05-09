@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AppContext } from '../App';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
-import { ArrowLeft, Star, Plus, Minus, ShoppingCart, Package, Truck, Shield, CreditCard, Check } from 'lucide-react';
+import { ArrowLeft, Star, Plus, Minus, ShoppingCart, Truck, Shield, CreditCard, Check } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function ProductDetail() {
@@ -28,20 +28,40 @@ export function ProductDetail() {
     features: []
   };
 
-  // Map product fields to match display names
+  const rawRating = product.rating as unknown;
+  const ratingNumber =
+    rawRating != null && typeof rawRating === 'object' && 'average' in (rawRating as object)
+      ? Number((rawRating as { average?: unknown }).average) || 0
+      : typeof rawRating === 'number'
+        ? rawRating
+        : 0;
+
+  const rawReviews = product.reviews as unknown;
+  const reviewsCount =
+    typeof product.rating?.count === 'number'
+      ? product.rating.count
+      : typeof rawReviews === 'number'
+        ? rawReviews
+        : Array.isArray(rawReviews)
+          ? rawReviews.length
+          : 0;
+
+  const safeFeatures = Array.isArray(product.features) ? product.features : [];
+
+  // Map product fields to match display names (never pass-through Mongo rating/reviews shapes into JSX)
   const displayProduct = {
     _id: product._id || product.id,
     name: product.name,
-    price: product.price,
-    rating: product.rating?.average || product.rating || 0,
-    reviews: product.rating?.count || product.reviews || 0,
+    price: Number(product.price ?? 0),
+    rating: ratingNumber,
+    reviews: reviewsCount,
     seller: product.supplierName || product.seller || 'Unknown Supplier',
-    unit: product.unit,
+    unit: product.unit || 'per unit',
     description: product.description,
-    inStock: product.stockQuantity > 0,
-    stockCount: product.stockQuantity || 0,
+    inStock: (product.stockQuantity ?? 0) > 0,
+    stockCount: Math.max(0, Number(product.stockQuantity ?? 0)),
     image: product.mainImage || product.image,
-    features: product.features || []
+    features: safeFeatures.map((f: unknown) => (typeof f === 'string' ? f : f != null && typeof f === 'object' && 'label' in (f as object) ? String((f as { label?: unknown }).label) : String(f)))
   };
 
   const handleQuantityChange = (delta: number) => {
@@ -121,15 +141,15 @@ export function ProductDetail() {
         >
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
-              <h2 className="text-[#102542] text-[18px] mb-1">{product.name}</h2>
-              <p className="text-[#3D8A75] text-sm">{product.seller}</p>
+              <h2 className="text-[#102542] text-[18px] mb-1">{displayProduct.name}</h2>
+              <p className="text-[#3D8A75] text-sm">{displayProduct.seller}</p>
             </div>
             <div className={`px-3 py-1 rounded-full text-xs ${
-              product.inStock 
+              displayProduct.inStock 
                 ? 'bg-green-100 text-green-700' 
                 : 'bg-red-100 text-red-700'
             }`}>
-              {product.inStock ? `${product.stockCount} in stock` : 'Out of Stock'}
+              {displayProduct.inStock ? `${displayProduct.stockCount} in stock` : 'Out of Stock'}
             </div>
           </div>
 
@@ -137,15 +157,15 @@ export function ProductDetail() {
           <div className="flex items-center gap-2 mb-4">
             <div className="flex items-center gap-1">
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-[#102542]">{product.rating}</span>
+              <span className="text-[#102542]">{displayProduct.rating}</span>
             </div>
-            <span className="text-gray-500 text-sm">({product.reviews} reviews)</span>
+            <span className="text-gray-500 text-sm">({displayProduct.reviews} reviews)</span>
           </div>
 
           {/* Price */}
           <div className="mb-4">
-            <p className="text-[#3D8A75] text-[24px]">PKR {product.price.toLocaleString()}</p>
-            <p className="text-gray-500 text-sm">{product.unit}</p>
+            <p className="text-[#3D8A75] text-[24px]">PKR {displayProduct.price.toLocaleString()}</p>
+            <p className="text-gray-500 text-sm">{displayProduct.unit}</p>
           </div>
 
           {/* Description */}

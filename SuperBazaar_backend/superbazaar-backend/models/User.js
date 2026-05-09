@@ -134,6 +134,10 @@ creditScore: {
       type: Boolean,
       default: false
     },
+    autoFetched: { type: Boolean, default: false },
+    autoFetchSource: { type: String, default: null },
+    bankName: { type: String, default: null },
+    bankCode: { type: String, default: null },
     connectedAt: Date,
     lastSyncAt: Date,
     consents: {

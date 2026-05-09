@@ -529,6 +529,8 @@ const getNanoTiers = async (req, res) => {
         eligibleTier,
         tiers: creditConfig.NANO.TIERS.map((tier) => toServiceCharge(tier)),
         tenureOptions: creditConfig.NANO.TENURE_OPTIONS.map(({ months }) => ({ months })),
+        disbursementWindowSeconds: 60,
+        payoutTarget: 'wallet',
         requirements: {
           minScore: creditConfig.NANO.MIN_SCORE,
           minKycLevel: creditConfig.NANO.MIN_KYC_LEVEL,

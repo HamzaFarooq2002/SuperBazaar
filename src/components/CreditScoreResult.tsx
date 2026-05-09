@@ -3,9 +3,8 @@ import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
+import { BNPL_MIN_SCORE, bnplMarkupLine } from '../config/bnplCredit';
 import { ArrowLeft, TrendingUp, TrendingDown, Info, Share2, Download, RefreshCcw } from 'lucide-react';
-
-const BNPL_MIN_SCORE = 620;
 
 export function CreditScoreResult() {
   const { navigateTo } = useContext(AppContext);
@@ -341,7 +340,7 @@ export function CreditScoreResult() {
             {isMerchant
               ? `Bank financing unlocks at score 650+ with verified KYC. Pricing is bank-issued: KIBOR + spread by tier.`
               : isCustomer
-              ? `BNPL unlocks at score ${BNPL_MIN_SCORE}+ with verified KYC and transaction history.`
+              ? `BNPL unlocks at score ${BNPL_MIN_SCORE}+ with verified KYC. Checkout also validates cart amount and item categories.`
               : 'Credit products are role-based and score-gated.'}
           </p>
           <div className="text-[12px] text-[#102542] space-y-1 mb-3">
@@ -349,8 +348,8 @@ export function CreditScoreResult() {
             {isCustomer && <p>{isBnplEligible ? '✓' : '•'} BNPL eligibility: {isBnplEligible ? 'Eligible' : 'Not eligible yet'}</p>}
             {isCustomer && (
               <>
-                <p>7-day markup: Excellent 0%, Good 5%, Fair 10%</p>
-                <p>14-day markup: Excellent 0%, Good 10%, Fair 20%</p>
+                <p>{bnplMarkupLine('day7', '7-day markup')}</p>
+                <p>{bnplMarkupLine('day14', '14-day markup')}</p>
               </>
             )}
           </div>

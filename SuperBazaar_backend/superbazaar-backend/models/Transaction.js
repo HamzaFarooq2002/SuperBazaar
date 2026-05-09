@@ -63,7 +63,7 @@ const transactionSchema = new mongoose.Schema({
   // Payment Details
   paymentMethod: {
     type: String,
-    enum: ['cash', 'bank_transfer', 'mobile_banking', 'credit', 'bank_financing', 'bnpl', 'wallet', 'easypaisa', 'jazzcash', 'card', 'other']
+    enum: ['cash', 'bank_transfer', 'mobile_banking', 'credit', 'bank_financing', 'bnpl', 'wallet', 'easypaisa', 'jazzcash', 'card', 'pbb', 'other']
   },
   
   // Status
