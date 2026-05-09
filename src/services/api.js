@@ -1,7 +1,20 @@
 import axios from 'axios';
 
-// Base URL from environment variable
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+/**
+ * Production: set VITE_BACKEND_URL in Vercel (e.g. https://superbazaar.onrender.com).
+ * Trailing slash is optional; /api is appended if the host has no /api path.
+ * Legacy: VITE_API_URL can still be a full base including /api (e.g. http://localhost:5000/api).
+ */
+const resolveApiBaseUrl = () => {
+  const fromEnv =
+    import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL;
+  if (!fromEnv) return 'http://localhost:5000/api';
+  const trimmed = String(fromEnv).replace(/\/$/, '');
+  if (trimmed.endsWith('/api')) return trimmed;
+  return `${trimmed}/api`;
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 // Create axios instance
 const axiosInstance = axios.create({
