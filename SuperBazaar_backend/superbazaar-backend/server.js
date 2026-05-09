@@ -105,6 +105,9 @@ mongoose.connect(MONGODB_URI, {
 })
   .then(() => {
     console.log('✅ MongoDB Connected Successfully');
+    if (!process.env.JWT_SECRET) {
+      console.warn('⚠️  JWT_SECRET is not set — signup/login will fail until you add it in Render env.');
+    }
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📍 API URL: http://localhost:${PORT}/api`);

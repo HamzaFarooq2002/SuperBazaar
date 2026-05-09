@@ -16,6 +16,12 @@ const resolveApiBaseUrl = () => {
 
 const API_BASE_URL = resolveApiBaseUrl();
 
+if (import.meta.env.PROD && !import.meta.env.VITE_BACKEND_URL && !import.meta.env.VITE_API_URL) {
+  console.warn(
+    '[SuperBazaar] VITE_BACKEND_URL (or VITE_API_URL) was not set at build time. API calls default to localhost and will fail in production. Add env vars in Vercel and redeploy.'
+  );
+}
+
 // Create axios instance
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
