@@ -1,7 +1,6 @@
 const User = require('../models/User');
 const Store = require('../models/Store');
 const { generateToken } = require('../utils/jwtUtils');
-const { calculateCreditScore } = require('../utils/creditScoring');
 const { validatePassword } = require('../utils/passwordPolicy');
 
 const REQUIRED_BUSINESS_DOCS = ['ntn_certificate', 'business_registration', 'bank_statement'];
@@ -346,13 +345,9 @@ const verifyKYC = async (req, res) => {
     
     user.kycStatus = 'verified';
     user.kycLevel = Math.max(user.kycLevel || 0, 2);
-    
-    // Calculate initial credit score for merchants
-    if (user.userType === 'merchant') {
-      const creditScore = calculateCreditScore(user);
-      user.creditScore = creditScore;
-    }
-    
+
+    // ML credit score is produced via POST /api/credit/score (FastAPI pipeline).
+
     await user.save();
     await syncSupplierVerificationStore(user);
     
