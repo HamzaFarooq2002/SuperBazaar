@@ -95,7 +95,9 @@ const getDashboardStats = async (req, res) => {
         .sort((a, b) => new Date(a.nextPaymentDate) - new Date(b.nextPaymentDate))[0];
       
       // Recent orders
-      const recentOrders = await Order.find({ merchant: userId })
+      const recentOrders = await Order.find({
+        $or: [{ merchant: userId }, { 'items.supplier': userId }]
+      })
         .populate('items.product', 'name mainImage')
         .sort({ createdAt: -1 })
         .limit(5);

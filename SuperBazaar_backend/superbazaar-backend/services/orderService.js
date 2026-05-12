@@ -1,4 +1,5 @@
 const Product = require('../models/Product');
+const User = require('../models/User');
 const Order = require('../models/Order');
 const Transaction = require('../models/Transaction');
 const { DELIVERY_FEE, TAX_RATE } = require('../config/pricing');
@@ -83,6 +84,9 @@ async function createOrderFromDraft({ userId, userType, userName, orderDraft, pa
       relatedOrder: order._id,
       paymentMethod,
       status: 'completed'
+    });
+    await User.findByIdAndUpdate(sellerId, {
+      $inc: { walletBalance: sellerTotal }
     });
   }
   await Transaction.create({

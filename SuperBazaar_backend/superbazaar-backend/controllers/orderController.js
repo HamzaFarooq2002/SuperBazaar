@@ -1,4 +1,5 @@
 const Order = require('../models/Order');
+const User = require('../models/User');
 const Product = require('../models/Product');
 const CreditLine = require('../models/CreditLine');
 const Transaction = require('../models/Transaction');
@@ -137,6 +138,9 @@ const createOrder = async (req, res) => {
         relatedOrder: order._id,
         paymentMethod: txnPaymentMethod,
         status: 'completed'
+      });
+      await User.findByIdAndUpdate(sellerId, {
+        $inc: { walletBalance: sellerTotal }
       });
     }
 

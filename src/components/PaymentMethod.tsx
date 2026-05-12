@@ -163,8 +163,8 @@ export function PaymentMethod() {
       title: 'Pay by Bank',
       description: 'Direct bank account debit — instant payment',
       badge: 'Secure',
-      badgeStyle: 'bg-blue-100 text-blue-700',
-      color: 'from-blue-700 to-blue-900',
+      badgeStyle: 'bg-[#3D8A75]/15 text-[#3D8A75]',
+      color: 'from-[#102542] to-[#3D8A75]',
       details: 'Powered by Open Banking'
     },
     {
