@@ -56,6 +56,19 @@ Vite will print the local URL (typically `http://localhost:5173`).
 
 Frontend env vars must be present **at build time** for Vite (`VITE_*`).
 
+## Deploying the frontend (Vercel)
+
+Use the **repository root** as the Vercel project (where this [`package.json`](package.json) and [`vite.config.ts`](vite.config.ts) live).
+
+| Setting | Value |
+|---------|--------|
+| **Root Directory** | Empty or `.` (not `SuperBazaar_backend`) |
+| **Framework Preset** | Vite |
+| **Output Directory** | `dist` — must match Vite’s build output |
+| **Environment variables** | `VITE_BACKEND_URL` = your public API origin (e.g. `https://your-api.onrender.com`) |
+
+If the build log shows Vite succeeded but Vercel reports **“No Output Directory named dist found”**, the dashboard **Output Directory** or **Root Directory** usually does not match where `vite build` writes (`dist/`). Fix those settings and redeploy — no app code change required.
+
 ## npm scripts
 
 **Root (frontend)**
