@@ -157,7 +157,14 @@ export function Marketplace() {
               </div>
               <div className="p-3 flex flex-col flex-grow">
                 <p className="text-[#102542] mb-1 text-sm line-clamp-2">{item.name}</p>
-                <p className="text-gray-500 text-xs mb-2">{item.supplierName}</p>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <p className="text-gray-500 text-xs">{item.supplierName}</p>
+                  {(item as Product).isSupplierVerified && (
+                    <span className="text-[9px] px-2 py-0.5 rounded-full font-medium bg-[#3D8A75]/15 text-[#3D8A75]">
+                      Verified Supplier
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-1 mb-2">
                   <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
                   <span className="text-gray-600 text-xs">{item.rating?.average || 0}</span>

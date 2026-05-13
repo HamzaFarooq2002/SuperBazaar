@@ -142,7 +142,14 @@ export function ProductDetail() {
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
               <h2 className="text-[#102542] text-[18px] mb-1">{displayProduct.name}</h2>
-              <p className="text-[#3D8A75] text-sm">{displayProduct.seller}</p>
+              <p className="text-[#3D8A75] text-sm flex flex-wrap items-center gap-2">
+                {displayProduct.seller}
+                {(product as any).isSupplierVerified && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-[#3D8A75]/15 text-[#3D8A75]">
+                    Verified Supplier
+                  </span>
+                )}
+              </p>
             </div>
             <div className={`px-3 py-1 rounded-full text-xs ${
               displayProduct.inStock 

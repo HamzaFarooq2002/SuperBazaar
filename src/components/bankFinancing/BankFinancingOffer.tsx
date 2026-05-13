@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, CheckCircle, Clock, AlertTriangle, Calendar, TrendingUp, FileText, Wallet } from 'lucide-react';
 import { AppContext } from '../../App';
 import { useOrder } from '../../hooks/useOrder';
+import { useCart } from '../../hooks/useCart';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
 import { BankBrandTile, getBankBrand } from './bankBrands';
@@ -26,6 +27,7 @@ const formatDateShort = (date: Date) =>
 export function BankFinancingOffer() {
   const { navigateTo } = useContext(AppContext);
   const { shippingFormData, setCurrentOrder, setShippingFormData } = useOrder();
+  const { clearCart } = useCart();
   const { user } = useAuth();
   const [checked, setChecked] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -115,6 +117,7 @@ export function BankFinancingOffer() {
       setCurrentOrder(res.data.order);
       sessionStorage.removeItem('bankFinancingDraft');
       setShippingFormData(null);
+      clearCart();
       navigateTo('order-confirmation');
     } catch (err: any) {
       setError(err?.error?.data?.message || err?.error?.message || 'Could not accept the bank offer.');

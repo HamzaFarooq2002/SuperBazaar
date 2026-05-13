@@ -120,6 +120,9 @@ export interface Product {
   tags?: string[];
   specifications?: Record<string, string>;
   isActive: boolean;
+  /** Supplier/merchant KYC verified — eligible for merchant SNPL cart checks */
+  isSupplierVerified?: boolean;
+  supplierVerifiedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -162,7 +165,7 @@ export interface Order {
   subtotal: number;
   tax: number;
   totalAmount: number;
-  paymentMethod: 'cash' | 'bnpl' | 'bank_transfer' | 'mobile_banking' | 'bank_financing';
+  paymentMethod: 'cash' | 'bnpl' | 'bank_transfer' | 'mobile_banking' | 'bank_financing' | 'pbb';
   paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
   orderStatus: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   shippingAddress?: Address;
@@ -195,7 +198,7 @@ export interface CreateOrderData {
     quantity: number;
     price: number;
   }[];
-  paymentMethod: 'cash' | 'bnpl' | 'bank_transfer' | 'mobile_banking' | 'bank_financing';
+  paymentMethod: 'cash' | 'bnpl' | 'bank_transfer' | 'mobile_banking' | 'bank_financing' | 'pbb';
   shippingAddress?: Address;
   notes?: string;
 }

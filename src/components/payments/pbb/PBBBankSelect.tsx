@@ -110,6 +110,7 @@ export function PBBBankSelect() {
       <div className="bg-white/30 backdrop-blur-md border-b border-white/40 px-6 pt-12 pb-4 sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <button onClick={() => navigateTo(backScreen as any)} className="text-[#102542]"><ArrowLeft className="w-6 h-6" /></button>
+          <img src="/pay-by-bank-logo.svg" alt="" className="w-9 h-9 object-contain flex-shrink-0 rounded-lg bg-white/90 p-0.5" />
           <h1 className="text-[16px] font-semibold text-[#102542]">Select Your Bank</h1>
         </div>
       </div>

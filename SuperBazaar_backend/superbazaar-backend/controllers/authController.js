@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Store = require('../models/Store');
+const Product = require('../models/Product');
 const { generateToken } = require('../utils/jwtUtils');
 const { validatePassword } = require('../utils/passwordPolicy');
 
@@ -55,6 +56,33 @@ const sendConflict = (res, field, message) =>
     field
   });
 
+const syncMerchantVerificationStore = async (user) => {
+  if (user.userType !== 'merchant' || user.kycStatus !== 'verified') return null;
+
+  return Store.findOneAndUpdate(
+    { owner: user._id },
+    {
+      $set: {
+        name: user.businessName || user.name,
+        phone: user.phone,
+        email: user.email,
+        isVerified: true,
+        verifiedAt: new Date()
+      },
+      $setOnInsert: {
+        owner: user._id,
+        address: {
+          street: user.businessAddress || '',
+          city: 'Karachi',
+          country: 'Pakistan'
+        },
+        businessType: user.businessType || 'other'
+      }
+    },
+    { upsert: true, new: true, runValidators: true }
+  );
+};
+
 const syncSupplierVerificationStore = async (user) => {
   if (user.userType !== 'supplier' || user.kycStatus !== 'verified') return null;
 
@@ -79,6 +107,16 @@ const syncSupplierVerificationStore = async (user) => {
       }
     },
     { upsert: true, new: true, runValidators: true }
+  );
+};
+
+/** Mark all catalogue products for this owner as SNPL-eligible supplier inventory */
+const backfillVerifiedProductsForOwner = async (user) => {
+  if (user.kycStatus !== 'verified') return;
+  if (user.userType !== 'supplier' && user.userType !== 'merchant') return;
+  await Product.updateMany(
+    { supplier: user._id, isSupplierVerified: { $ne: true } },
+    { $set: { isSupplierVerified: true, supplierVerifiedAt: new Date() } }
   );
 };
 
@@ -319,7 +357,9 @@ const submitKYC = async (req, res) => {
     
     await user.save();
     await syncSupplierVerificationStore(user);
-    
+    await syncMerchantVerificationStore(user);
+    await backfillVerifiedProductsForOwner(user);
+
     res.status(200).json({
       success: true,
       message: 'KYC data submitted successfully',
@@ -366,7 +406,9 @@ const verifyKYC = async (req, res) => {
 
     await user.save();
     await syncSupplierVerificationStore(user);
-    
+    await syncMerchantVerificationStore(user);
+    await backfillVerifiedProductsForOwner(user);
+
     res.status(200).json({
       success: true,
       message: 'KYC verified successfully',

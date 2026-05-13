@@ -56,6 +56,10 @@ async function createOrderFromDraft({ userId, userType, userName, orderDraft, pa
   if (paymentMethod === 'bnpl' || userType === 'customer') {
     orderPayload.customer = userId;
     orderPayload.orderType = 'customer_bnpl';
+    // Keep compatibility with marketplace order listing/query paths that use `merchant`.
+    if (paymentMethod !== 'bnpl') {
+      orderPayload.merchant = userId;
+    }
   } else {
     orderPayload.merchant = userId;
     orderPayload.orderType = 'merchant_purchase';

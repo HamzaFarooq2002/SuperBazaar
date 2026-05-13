@@ -178,7 +178,11 @@ const getOrders = async (req, res) => {
     const { status, page = 1, limit = 20 } = req.query;
     
     const query = {
-      $or: [{ merchant: req.user.id }, { paymentMethod: 'bnpl', customer: req.user.id }]
+      $or: [
+        { merchant: req.user.id },
+        { paymentMethod: 'bnpl', customer: req.user.id },
+        { paymentMethod: 'pbb', customer: req.user.id }
+      ]
     };
     
     if (status) {

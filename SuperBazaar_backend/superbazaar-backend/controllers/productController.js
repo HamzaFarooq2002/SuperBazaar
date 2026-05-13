@@ -105,13 +105,22 @@ const createProduct = async (req, res) => {
       });
     }
     
+    const body = { ...req.body };
+    delete body.isSupplierVerified;
+    delete body.supplierVerifiedAt;
+    delete body.supplier;
+    delete body.supplierName;
+
+    const verifiedOwner = req.user.kycStatus === 'verified';
     const productData = {
-      ...req.body,
-      // supplier field stores the owner ID for both suppliers and merchants
+      ...body,
       supplier: req.user.id,
-      supplierName: req.user.businessName || req.user.name
+      supplierName: req.user.businessName || req.user.name,
+      ...(verifiedOwner
+        ? { isSupplierVerified: true, supplierVerifiedAt: new Date() }
+        : { isSupplierVerified: false })
     };
-    
+
     const product = await Product.create(productData);
     
     res.status(201).json({
@@ -151,9 +160,20 @@ const updateProduct = async (req, res) => {
       });
     }
     
+    const body = { ...req.body };
+    delete body.isSupplierVerified;
+    delete body.supplierVerifiedAt;
+    delete body.supplier;
+    delete body.supplierName;
+
+    if (req.user.kycStatus === 'verified') {
+      body.isSupplierVerified = true;
+      body.supplierVerifiedAt = product.supplierVerifiedAt || new Date();
+    }
+
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      body,
       { new: true, runValidators: true }
     );
     

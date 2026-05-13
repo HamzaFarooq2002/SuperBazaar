@@ -13,7 +13,7 @@ const getReasonText = (reason: any) =>
 
 export function BankFinancingSelection() {
   const { navigateTo } = useContext(AppContext);
-  const { items, totalPrice } = useCart();
+  const { items, totalPrice, removeItem } = useCart();
   const [eligibility, setEligibility] = useState<any>(null);
   const [selectedBank, setSelectedBank] = useState('');
   const [loading, setLoading] = useState(true);
@@ -39,6 +39,14 @@ export function BankFinancingSelection() {
     };
     run();
   }, [requestedAmount, items]);
+
+  const handleRemoveUnverifiedFromCart = () => {
+    const bad = new Set((eligibility?.unverifiedSupplierIds || []).map(String));
+    if (bad.size === 0) return;
+    items.forEach((it: any) => {
+      if (bad.has(String(it.supplier))) removeItem(it.productId);
+    });
+  };
 
   const handleContinue = () => {
     if (!selectedBank || !eligibility?.eligible) return;
@@ -227,10 +235,25 @@ export function BankFinancingSelection() {
                   <AlertTriangle className="w-4 h-4 text-yellow-700 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 text-xs text-yellow-800">
                     <p className="mb-2 font-medium">Some cart items are from unverified suppliers</p>
-                    <p className="mb-2">Remove these items to proceed with bank financing.</p>
-                    <button onClick={() => navigateTo('shopping-cart')} className="text-[#3D8A75] underline font-medium">
-                      Back to cart
-                    </button>
+                    {(eligibility?.unverifiedSupplierNames?.length > 0) && (
+                      <p className="mb-2 text-yellow-900">
+                        <span className="font-medium">Suppliers: </span>
+                        {eligibility.unverifiedSupplierNames.join(', ')}
+                      </p>
+                    )}
+                    <p className="mb-2">Remove these items to proceed with bank financing, or ask the supplier to complete KYC.</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRemoveUnverifiedFromCart}
+                        className="text-[#102542] font-semibold underline"
+                      >
+                        Remove unverified items from cart
+                      </button>
+                      <button onClick={() => navigateTo('shopping-cart')} className="text-[#3D8A75] underline font-medium">
+                        Back to cart
+                      </button>
+                    </div>
                   </div>
                 </div>
               </motion.div>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Pay by Bank">
+  <rect width="48" height="48" rx="10" fill="#ffffff"/>
+  <g fill="#102542">
+    <rect x="10" y="14" width="6" height="20" rx="1"/>
+    <rect x="18" y="18" width="6" height="16" rx="1"/>
+    <rect x="26" y="12" width="6" height="22" rx="1"/>
+    <rect x="34" y="16" width="4" height="18" rx="1"/>
+  </g>
+  <path d="M8 32 L14 26 L18 30 L26 20 L32 26 L40 18" fill="none" stroke="#3D8A75" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="40" cy="18" r="3" fill="#3D8A75"/>
+</svg>

@@ -2,16 +2,23 @@ import React, { useContext, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../../../App';
 import { usePaymentSession } from '../../../contexts/PaymentSessionContext';
+import { useOrder } from '../../../hooks/useOrder';
+import { useCart } from '../../../hooks/useCart';
 import api from '../../../services/api';
 
 export function PBBProcessing() {
   const { navigateTo } = useContext(AppContext);
   const { session, setSession } = usePaymentSession();
+  const { setCurrentOrder } = useOrder();
+  const { clearCart } = useCart();
 
   useEffect(() => {
-    if (!session.sessionId) { navigateTo('pbb-bank-select'); return; }
+    if (!session.sessionId) {
+      navigateTo('pbb-bank-select');
+      return;
+    }
     const minDelay = new Promise((resolve) => setTimeout(resolve, 2500));
-    Promise.all([api.pbb.confirm(session.sessionId, { consent: true }), minDelay]).then(([res]: any) => {
+    Promise.all([api.pbb.confirm(session.sessionId, { consent: true }), minDelay]).then(async ([res]: any) => {
       if (res.success && res.data?.status === 'SUCCESS') {
         const intent = session.intent || sessionStorage.getItem('pbbIntent');
         const repayFromApi = res.data?.repayment;
@@ -28,7 +35,25 @@ export function PBBProcessing() {
             : null;
         if (repayResult) sessionStorage.setItem('repayResult', JSON.stringify(repayResult));
         if (res.data.orderId) sessionStorage.setItem('confirmedOrderId', res.data.orderId);
-        setSession((prev) => ({ ...prev, status: 'success', transactionId: res.data.transactionId, orderId: res.data.orderId }));
+
+        if (intent !== 'bank_financing_repay' && res.data.orderId) {
+          try {
+            const orderRes = await api.orders.getOrder(String(res.data.orderId));
+            if (orderRes.success && orderRes.data?.order) {
+              setCurrentOrder(orderRes.data.order);
+            }
+          } catch {
+            /* non-fatal */
+          }
+          clearCart();
+        }
+
+        setSession((prev) => ({
+          ...prev,
+          status: 'success',
+          transactionId: res.data.transactionId,
+          orderId: res.data.orderId
+        }));
         navigateTo('pbb-success');
       } else {
         setSession((prev) => ({ ...prev, status: 'failed', failureReason: res.data?.failureReason || 'Payment failed' }));
@@ -39,6 +64,8 @@ export function PBBProcessing() {
       setSession((prev) => ({ ...prev, status: 'failed', failureReason: reason }));
       navigateTo('pbb-failure');
     });
+    // Intentionally run once on mount for this session (mirrors prior behavior).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dots = ['Processing', 'Connecting to bank', 'Authorizing payment', 'Finalizing'];

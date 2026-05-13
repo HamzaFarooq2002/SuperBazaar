@@ -193,6 +193,11 @@ export function CustomerMarketplace() {
                 </div>
                 <div className="p-3">
                   <p className="text-[#102542] text-sm mb-2 line-clamp-2 h-10">{product.name}</p>
+                  {product.raw?.isSupplierVerified && (
+                    <span className="inline-block mb-2 text-[9px] px-2 py-0.5 rounded-full font-medium bg-[#3D8A75]/15 text-[#3D8A75]">
+                      Verified Supplier
+                    </span>
+                  )}
                   <div className="flex items-center gap-1 mb-2">
                     <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
                     <span className="text-gray-600 text-xs">{product.rating}</span>

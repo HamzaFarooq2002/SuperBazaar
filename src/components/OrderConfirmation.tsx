@@ -1,18 +1,44 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AppContext } from '../App';
 import { useOrder } from '../hooks/useOrder';
 import { useAuth } from '../hooks/useAuth';
 import { CheckCircle, Package, MapPin, CreditCard, Calendar } from 'lucide-react';
+import api from '../services/api';
 
 export function OrderConfirmation() {
   const { navigateTo } = useContext(AppContext);
-  const { currentOrder } = useOrder();
+  const { currentOrder, setCurrentOrder } = useOrder();
   const { user } = useAuth();
   const homeMarketplace = user?.userType === 'customer' ? 'customer-marketplace' : 'marketplace';
+  const [loadingOrder, setLoadingOrder] = useState(false);
 
-  // If no order data, show fallback or redirect
+  useEffect(() => {
+    if (currentOrder) return;
+    const savedId = sessionStorage.getItem('confirmedOrderId');
+    if (!savedId) return;
+    setLoadingOrder(true);
+    api.orders
+      .getOrder(savedId)
+      .then((res: any) => {
+        if (res.success && res.data?.order) setCurrentOrder(res.data.order);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingOrder(false));
+  }, [currentOrder, setCurrentOrder]);
+
+  // If no order data, try loading from PBB session first, then fallback
   if (!currentOrder) {
+    if (loadingOrder) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-[#e8f0f2] to-[#d4e8e4] flex items-center justify-center px-6">
+          <div className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-8 text-center">
+            <div className="w-10 h-10 border-2 border-[#3D8A75] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-[#102542] text-sm">Loading your order…</p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#e8f0f2] to-[#d4e8e4] flex items-center justify-center px-6">
         <div className="bg-white/50 backdrop-blur-md border border-white/60 rounded-2xl p-8 text-center">
@@ -29,10 +55,18 @@ export function OrderConfirmation() {
   }
 
   // Format payment method for display
-  const paymentMethodDisplay = 
-    currentOrder.paymentMethod === 'bank_financing' ? 'Bank Financing' :
-    currentOrder.paymentMethod === 'cash' ? 'Cash on Delivery' : 
-    currentOrder.paymentMethod;
+  const paymentMethodDisplay: React.ReactNode =
+    currentOrder.paymentMethod === 'bank_financing'
+      ? 'Bank Financing'
+      : currentOrder.paymentMethod === 'cash'
+        ? 'Cash on Delivery'
+        : currentOrder.paymentMethod === 'pbb'
+          ? (
+            <span className="inline-flex items-center gap-2 flex-wrap">
+              <img src="/pay-by-bank-wordmark.svg" alt="Pay by Bank" className="h-6 w-auto max-w-[180px] object-contain object-left" />
+            </span>
+          )
+          : currentOrder.paymentMethod;
 
   const orderDetails = {
     orderId: currentOrder.orderNumber || 'N/A',
@@ -178,7 +212,7 @@ export function OrderConfirmation() {
               </div>
               <div className="flex-1">
                 <p className="text-[#102542] text-sm mb-1">Payment Method</p>
-                <p className="text-gray-600 text-sm">{orderDetails.paymentMethod}</p>
+                <p className="text-gray-600 text-sm flex flex-wrap items-center gap-2">{orderDetails.paymentMethod}</p>
               </div>
             </div>
           </div>

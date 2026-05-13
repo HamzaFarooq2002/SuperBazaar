@@ -7,7 +7,22 @@ import { useOrder } from '../hooks/useOrder';
 import { usePaymentSession } from '../contexts/PaymentSessionContext';
 import api from '../services/api';
 import { ArrowLeft, Banknote, CreditCard, Landmark, ChevronRight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { DELIVERY_FEE } from '../config/pricing';
+
+type PaymentMethodId = 'cash' | 'bnpl' | 'bank_financing' | 'pbb';
+
+type PaymentMethodRow = {
+  id: PaymentMethodId;
+  icon?: LucideIcon;
+  logoSrc?: string;
+  title: string;
+  description: string;
+  badge: string | null;
+  badgeStyle: string;
+  color: string;
+  details: string;
+};
 
 export function PaymentMethod() {
   const { navigateTo } = useContext(AppContext);
@@ -132,7 +147,7 @@ export function PaymentMethod() {
     }
   };
 
-  const paymentMethods = [
+  const paymentMethods: PaymentMethodRow[] = [
     ...(isMerchant ? [{
       id: 'bank_financing' as const,
       icon: Landmark,
@@ -159,11 +174,11 @@ export function PaymentMethod() {
     }] : []),
     {
       id: 'pbb' as const,
-      icon: Landmark,
+      logoSrc: '/pay-by-bank-logo.svg',
       title: 'Pay by Bank',
       description: 'Direct bank account debit — instant payment',
       badge: 'Secure',
-      badgeStyle: 'bg-[#3D8A75]/15 text-[#3D8A75]',
+      badgeStyle: 'bg-[#102542]/10 text-[#102542]',
       color: 'from-[#102542] to-[#3D8A75]',
       details: 'Powered by Open Banking'
     },
@@ -208,7 +223,13 @@ export function PaymentMethod() {
             >
               <div className="flex items-start gap-4">
                 <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${method.color} flex items-center justify-center flex-shrink-0 shadow-md`}>
-                  <method.icon className="w-7 h-7 text-white" />
+                  {method.logoSrc ? (
+                    <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center p-1">
+                      <img src={method.logoSrc} alt="" className="w-full h-full object-contain" />
+                    </div>
+                  ) : method.icon ? (
+                    <method.icon className="w-7 h-7 text-white" />
+                  ) : null}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-start justify-between mb-2">

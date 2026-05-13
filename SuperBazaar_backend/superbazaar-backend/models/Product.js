@@ -99,6 +99,15 @@ const productSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  /** True when the owning supplier/merchant has completed KYC — used for SNPL eligibility and buyer trust */
+  isSupplierVerified: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  supplierVerifiedAt: {
+    type: Date
+  },
   
   // Metadata
   tags: [String],
@@ -112,5 +121,6 @@ const productSchema = new mongoose.Schema({
 productSchema.index({ name: 'text', description: 'text', tags: 'text' });
 productSchema.index({ category: 1, price: 1 });
 productSchema.index({ supplier: 1 });
+productSchema.index({ isSupplierVerified: 1, supplier: 1 });
 
 module.exports = mongoose.model('Product', productSchema);

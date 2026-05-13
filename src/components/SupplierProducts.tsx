@@ -35,6 +35,7 @@ interface Product {
   mainImage: string;
   isActive: boolean;
   sku?: string;
+  isSupplierVerified?: boolean;
 }
 
 const emptyForm = {
@@ -287,6 +288,24 @@ export function SupplierProducts() {
       </div>
 
       <div className="px-6 mt-6">
+        {user?.kycStatus !== 'verified' && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/95 px-4 py-3"
+          >
+            <p className="text-sm text-amber-900 font-medium">
+              Complete KYC so your listings show as verified and merchants can use Stock Now Pay Later for your inventory.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigateTo('onboard-documents')}
+              className="mt-2 text-sm font-semibold text-[#3D8A75] underline"
+            >
+              Finish verification
+            </button>
+          </motion.div>
+        )}
         {/* View Marketplace banner */}
         <motion.button
           initial={{ opacity: 0, y: 10 }}
@@ -555,6 +574,27 @@ export function SupplierProducts() {
                       <div className="min-w-0">
                         <h4 className="text-sm font-medium text-[#102542] truncate">{product.name}</h4>
                         <p className="text-xs text-gray-400">{product.category}</p>
+                        {product.isSupplierVerified ? (
+                          <span className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-[#3D8A75]/15 text-[#3D8A75]">
+                            Verified Supplier
+                          </span>
+                        ) : (
+                          <div className="mt-1 flex flex-col items-start gap-1">
+                            <span className="inline-block text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-50 text-amber-800">
+                              KYC pending — complete KYC for SNPL eligibility
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigateTo('onboard-documents');
+                              }}
+                              className="text-[10px] font-semibold text-[#3D8A75] underline"
+                            >
+                              Go to KYC
+                            </button>
+                          </div>
+                        )}
                       </div>
                       <span className="text-sm font-semibold text-[#3D8A75] whitespace-nowrap">
                         PKR {product.price.toLocaleString()}

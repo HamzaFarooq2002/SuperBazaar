@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { AppContext } from '../../App';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
-import { ArrowLeft, Wallet, Building2 } from 'lucide-react';
+import { ArrowLeft, Wallet } from 'lucide-react';
 
 export function BankFinancingRepayMethod() {
   const { navigateTo } = useContext(AppContext);
@@ -50,7 +50,6 @@ export function BankFinancingRepayMethod() {
     },
     {
       id: 'pbb' as const,
-      icon: Building2,
       title: 'Pay by Bank',
       description: 'Direct debit via your linked bank account',
       available: true,
@@ -82,7 +81,13 @@ export function BankFinancingRepayMethod() {
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#102542] to-[#3D8A75] flex items-center justify-center flex-shrink-0">
-                  <m.icon className="w-6 h-6 text-white" />
+                  {m.id === 'pbb' ? (
+                    <div className="w-9 h-9 rounded-md bg-white flex items-center justify-center p-0.5">
+                      <img src="/pay-by-bank-logo.svg" alt="" className="w-full h-full object-contain" />
+                    </div>
+                  ) : 'icon' in m && m.icon ? (
+                    <m.icon className="w-6 h-6 text-white" />
+                  ) : null}
                 </div>
                 <div className="flex-1">
                   <p className="text-[#102542] font-medium">{m.title}</p>

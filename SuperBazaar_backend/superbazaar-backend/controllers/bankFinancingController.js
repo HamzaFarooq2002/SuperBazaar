@@ -88,7 +88,9 @@ const fetchProductsForIds = async (productIds, session) => {
     return { ids, products: [], invalidIds, missingIds: [] };
   }
 
-  const query = Product.find({ _id: { $in: ids } }).select('name supplier supplierName price stockQuantity');
+  const query = Product.find({ _id: { $in: ids } }).select(
+    'name supplier supplierName price stockQuantity isSupplierVerified'
+  );
   if (session) query.session(session);
   const products = await query;
   const foundIds = new Set(products.map((product) => String(product._id)));
@@ -97,8 +99,15 @@ const fetchProductsForIds = async (productIds, session) => {
 };
 
 const getUnverifiedSuppliers = async (products, session) => {
-  const supplierIds = [...new Set(products.map((product) => String(product.supplier)).filter(Boolean))];
-  if (supplierIds.length === 0) return [];
+  const nameBySupplierId = {};
+  for (const p of products) {
+    const sid = String(p.supplier);
+    if (!nameBySupplierId[sid]) nameBySupplierId[sid] = p.supplierName || 'Unknown supplier';
+  }
+
+  const needsCheck = products.filter((p) => !p.isSupplierVerified);
+  const supplierIds = [...new Set(needsCheck.map((product) => String(product.supplier)).filter(Boolean))];
+  if (supplierIds.length === 0) return { ids: [], names: [] };
 
   const query = Store.find({ owner: { $in: supplierIds }, isVerified: true }).select('owner');
   if (session) query.session(session);
@@ -106,18 +115,21 @@ const getUnverifiedSuppliers = async (products, session) => {
   const verifiedOwners = new Set(verifiedStores.map((store) => String(store.owner)));
 
   const unverifiedByStore = supplierIds.filter((sid) => !verifiedOwners.has(String(sid)));
-  if (unverifiedByStore.length === 0) return [];
+  if (unverifiedByStore.length === 0) return { ids: [], names: [] };
 
   const userQuery = User.find({
     _id: { $in: unverifiedByStore },
-    userType: 'supplier',
+    userType: { $in: ['supplier', 'merchant'] },
     kycStatus: 'verified'
   }).select('_id');
   if (session) userQuery.session(session);
-  const kycVerifiedSuppliers = await userQuery;
-  const kycVerifiedSupplierIds = new Set(kycVerifiedSuppliers.map((supplier) => String(supplier._id)));
+  const kycVerifiedOwners = await userQuery;
+  const kycVerifiedOwnerIds = new Set(kycVerifiedOwners.map((u) => String(u._id)));
 
-  return unverifiedByStore.filter((sid) => !kycVerifiedSupplierIds.has(String(sid)));
+  const unverifiedIds = unverifiedByStore.filter((sid) => !kycVerifiedOwnerIds.has(String(sid)));
+  const names = [...new Set(unverifiedIds.map((id) => nameBySupplierId[id] || 'Unknown supplier'))];
+
+  return { ids: unverifiedIds, names };
 };
 
 const evaluateEligibility = async ({ user, requestedAmount, productIds = [], requireProducts = true }) => {
@@ -169,6 +181,7 @@ const evaluateEligibility = async ({ user, requestedAmount, productIds = [], req
 
   const normalizedProductIds = normalizeProductIds(productIds);
   let unverifiedSupplierIds = [];
+  let unverifiedSupplierNames = [];
   let missingProductIds = [];
   let invalidProductIds = [];
 
@@ -183,8 +196,10 @@ const evaluateEligibility = async ({ user, requestedAmount, productIds = [], req
     if (invalidProductIds.length > 0) reasonCodes.push('invalid_product_id');
     if (missingProductIds.length > 0) reasonCodes.push('product_not_found');
     if (invalidProductIds.length === 0 && missingProductIds.length === 0) {
-      unverifiedSupplierIds = await getUnverifiedSuppliers(result.products);
-      if (unverifiedSupplierIds.length > 0) reasonCodes.push('supplier_not_verified');
+      const uv = await getUnverifiedSuppliers(result.products);
+      unverifiedSupplierIds = uv.ids;
+      unverifiedSupplierNames = uv.names;
+      if (uv.ids.length > 0) reasonCodes.push('supplier_not_verified');
     }
   }
 
@@ -198,6 +213,7 @@ const evaluateEligibility = async ({ user, requestedAmount, productIds = [], req
     tier,
     requestedAmount: amount,
     unverifiedSupplierIds,
+    unverifiedSupplierNames,
     missingProductIds,
     invalidProductIds,
     activeApplication: activeApplication
@@ -446,12 +462,12 @@ const acceptOffer = async (req, res) => {
       return res.status(404).json({ success: false, message: 'One or more products were not found', data: { missingProductIds: productResult.missingIds } });
     }
 
-    const unverifiedSupplierIds = await getUnverifiedSuppliers(productResult.products);
-    if (unverifiedSupplierIds.length > 0) {
+    const uv = await getUnverifiedSuppliers(productResult.products);
+    if (uv.ids.length > 0) {
       return res.status(400).json({
         success: false,
         message: reasonMessages.supplier_not_verified,
-        data: { unverifiedSupplierIds }
+        data: { unverifiedSupplierIds: uv.ids, unverifiedSupplierNames: uv.names }
       });
     }
 
